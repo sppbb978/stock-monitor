@@ -10,7 +10,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
 import requests
 import streamlit as st
 import twstock
@@ -410,64 +409,67 @@ else:
     else:
         st.caption("監控目前已停止；可按「💾 儲存/重新整理」手動刷新報價。")
 
-    editor_rows = []
-    for stock in stocks:
-        name = stock.get("name") or get_stock_name(str(stock.get("symbol", "")))
-        editor_rows.append({
-            "股票代碼": stock.get("symbol", "-"),
-            "股票名稱": name,
-            "目標買入價": stock.get("buy_price"),
-            "目標賣出價": stock.get("sell_price"),
-            "最新價格": stock.get("last_price"),
-            "最後檢查時間": stock.get("last_checked", "尚未檢查"),
-            "狀態": "暫停中" if stock.get("status", "active") == "paused" else "監控中",
-            "刪除": False,
-        })
-
-    edited_watchlist = st.data_editor(
-        pd.DataFrame(editor_rows),
-        key="watchlist_editor",
-        hide_index=True,
-        use_container_width=True,
-        disabled=["股票代碼", "股票名稱", "最新價格", "最後檢查時間"],
-        column_config={
-            "目標買入價": st.column_config.NumberColumn(
-                ":green[目標買入價]", min_value=0.0, step=0.01, format="%.2f"
-            ),
-            "目標賣出價": st.column_config.NumberColumn(
-                ":red[目標賣出價]", min_value=0.0, step=0.01, format="%.2f"
-            ),
-            "最新價格": st.column_config.NumberColumn("最新價格", format="%.2f"),
-            "狀態": st.column_config.SelectboxColumn("狀態", options=["監控中", "暫停中"], required=True),
-            "刪除": st.column_config.CheckboxColumn("刪除", help="勾選後會立即刪除此股票"),
-        },
-    )
-
     price_changed = False
     watchlist_changed = False
-    deleted_stock = False
-    remaining_stocks: list[dict[str, Any]] = []
-    for stock, edited_row in zip(stocks, edited_watchlist.to_dict("records")):
-        if bool(edited_row["刪除"]):
-            deleted_stock = True
-            watchlist_changed = True
-            continue
-        for field, column_name in (("buy_price", "目標買入價"), ("sell_price", "目標賣出價")):
-            value = edited_row[column_name]
-            new_price = None if pd.isna(value) or float(value) <= 0 else float(value)
-            if stock.get(field) != new_price:
-                stock[field] = new_price
-                reset_notification_state(stock, "buy" if field == "buy_price" else "sell")
+    action_changed = False
+    delete_indices: list[int] = []
+    header = st.columns([1.35, 1.45, 1.45, 1.45, 1.3, 1.55, 2.1])
+    header[0].markdown("**股票代碼**")
+    header[1].markdown("**股票名稱**")
+    header[2].markdown("<span style='color:#00c853; font-weight:bold;'>目標買入價</span>", unsafe_allow_html=True)
+    header[3].markdown("<span style='color:#ff5252; font-weight:bold;'>目標賣出價</span>", unsafe_allow_html=True)
+    header[4].markdown("**最新價格**")
+    header[5].markdown("**最後檢查時間**")
+    header[6].markdown("**操作**")
+
+    for index, stock in enumerate(stocks):
+        columns = st.columns([1.35, 1.45, 1.45, 1.45, 1.3, 1.55, 2.1])
+        symbol = str(stock.get("symbol", "-"))
+        columns[0].write(symbol)
+        columns[1].write(stock.get("name") or get_stock_name(symbol))
+        current_buy = float(stock.get("buy_price") or 0.0)
+        current_sell = float(stock.get("sell_price") or 0.0)
+        new_buy = columns[2].number_input(
+            "買入價",
+            min_value=0.0,
+            value=current_buy,
+            step=0.01,
+            label_visibility="collapsed",
+            key=f"buy_price_{symbol}",
+        )
+        new_sell = columns[3].number_input(
+            "賣出價",
+            min_value=0.0,
+            value=current_sell,
+            step=0.01,
+            label_visibility="collapsed",
+            key=f"sell_price_{symbol}",
+        )
+        columns[4].write("-" if stock.get("last_price") is None else f"{float(stock['last_price']):,.2f}")
+        columns[5].write(stock.get("last_checked", "尚未檢查"))
+
+        for field, alert_type, new_price in (("buy_price", "buy", new_buy), ("sell_price", "sell", new_sell)):
+            normalized_price = None if new_price <= 0 else float(new_price)
+            if stock.get(field) != normalized_price:
+                stock[field] = normalized_price
+                reset_notification_state(stock, alert_type)
                 price_changed = True
                 watchlist_changed = True
-        new_status = "paused" if edited_row["狀態"] == "暫停中" else "active"
-        if stock.get("status", "active") != new_status:
-            stock["status"] = new_status
-            watchlist_changed = True
-        remaining_stocks.append(stock)
 
-    if deleted_stock:
-        stocks[:] = remaining_stocks
+        action_columns = columns[6].columns(2)
+        is_paused = stock.get("status", "active") == "paused"
+        status_label = "🟢 啟用" if is_paused else "🟡 暫停"
+        if action_columns[0].button(status_label, key=f"status_{index}_{symbol}", use_container_width=True):
+            stock["status"] = "active" if is_paused else "paused"
+            watchlist_changed = True
+            action_changed = True
+        if action_columns[1].button("🔴 刪除", key=f"delete_{index}_{symbol}", use_container_width=True):
+            delete_indices.append(index)
+            watchlist_changed = True
+            action_changed = True
+
+    for index in reversed(delete_indices):
+        stocks.pop(index)
 
     if watchlist_changed:
         sync_error = save_watchlist(stocks, config)
@@ -476,9 +478,9 @@ else:
         else:
             st.success("監控清單已儲存。")
 
-        if price_changed and stocks:
-            with st.spinner("正在以新目標價立即比對…"):
+        if stocks:
+            with st.spinner("正在以目前報價立即比對…"):
                 immediate_messages = run_monitor(stocks, config)
             st.info("｜".join(immediate_messages))
-        if deleted_stock:
+        if action_changed or price_changed:
             st.rerun()
