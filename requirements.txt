@@ -1,0 +1,5 @@
+streamlit>=1.31
+yfinance>=0.2.54
+requests>=2.31
+streamlit-autorefresh>=1.0.1
+twstock>=1.4.0

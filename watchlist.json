@@ -1,0 +1,10 @@
+{
+  "stocks": [
+    {
+      "symbol": "3037.TW",
+      "buy_price": null,
+      "sell_price": 1200.0,
+      "last_alerts": {}
+    }
+  ]
+}
