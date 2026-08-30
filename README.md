@@ -15,10 +15,22 @@ streamlit run app.py
 
 ## 使用方式
 
-1. 在左側欄輸入股票代碼／名稱與至少一個目標價，按「新增股票」。支援台股 4 位代碼（`2330`）、中文名稱（`台積電`）及美股代碼（`NVDA`）；台股會自動轉為 yfinance 使用的 `.TW` 格式。
+1. 在左側欄輸入股票代碼／名稱與至少一個目標價，按「新增股票」。支援台股 4 位代碼（`2330`）、中文名稱（`台積電`）及美股代碼（`NVDA`）；台股會依市場別自動轉為 yfinance 使用的 `.TW`（上市）或 `.TWO`（上櫃）格式。
 2. 輸入 LINE Channel Access Token 與 LINE User ID，按「儲存 LINE 設定」。
 3. 開啟「啟動監控」；工具會立即檢查，之後每 60 秒更新一次。
 
 同一支股票、同一類型的提醒（買入或賣出）在發送後 30 分鐘內不會重複發送。設定存放於 `config.json`，監控清單存放於 `watchlist.json`。請勿將包含真實 Token 的 `config.json` 提交到公開版本庫。
+
+## 雲端部署的監控清單備份
+
+Streamlit Cloud 重啟或重新部署時，本機檔案可能被重設。可在側邊欄的「💾 備份與 GitHub 同步」下載／匯入 JSON 備份，或填寫 GitHub Token、`owner/repository` 與分支，讓每次清單異動自動同步至 GitHub 的 `watchlist.json`。
+
+部署至 Streamlit Cloud 時，建議將憑證設定於 **Settings → Secrets**，避免 Token 寫入檔案：
+
+```toml
+github_token = "github_pat_..."
+github_repo = "你的帳號/你的倉庫"
+github_branch = "main"
+```
 
 > 注意：Streamlit 的自動更新需讓該瀏覽器頁面保持開啟。yfinance 報價可能有延遲，僅適合提醒用途，不應作為交易依據。

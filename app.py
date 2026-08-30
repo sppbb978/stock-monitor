@@ -10,6 +10,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import pandas as pd
 import requests
 import streamlit as st
 import twstock
@@ -356,48 +357,79 @@ with st.sidebar:
 
 monitoring = st.toggle("啟動監控（每 60 秒檢查一次）", value=True, key="monitoring")
 
-if monitoring:
-    st_autorefresh(interval=60_000, key="stock_monitor_refresh")
-    if stocks:
-        with st.spinner("正在更新價格與檢查提醒…"):
-            monitor_messages = run_monitor(stocks, config)
-        st.info("｜".join(monitor_messages))
-    else:
-        st.warning("目前沒有監控股票，請先從左側新增。")
-else:
-    st.caption("監控目前已停止。開啟上方開關後會立即檢查，並每 60 秒自動更新。")
-
 st.subheader("監控清單")
 if not stocks:
     st.info("尚未加入任何股票。")
 else:
-    header = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1.8, 1.8])
-    header[0].markdown("**股票代碼**")
-    header[1].markdown("**股票名稱**")
-    header[2].markdown("<span style='color:#00c853; font-weight:bold;'>目標買入價</span>", unsafe_allow_html=True)
-    header[3].markdown("<span style='color:#ff5252; font-weight:bold;'>目標賣出價</span>", unsafe_allow_html=True)
-    header[4].markdown("**最新價格**")
-    header[5].markdown("**最後檢查**")
-    header[6].markdown("**操作**")
+    save_refresh = st.button("💾 儲存/重新整理", type="primary")
+    if monitoring or save_refresh:
+        if monitoring:
+            st_autorefresh(interval=60_000, key="stock_monitor_refresh")
+        with st.spinner("正在更新價格與檢查提醒…"):
+            monitor_messages = run_monitor(stocks, config)
+        st.info("｜".join(monitor_messages))
+    else:
+        st.caption("監控目前已停止；可按「💾 儲存/重新整理」手動刷新報價。")
 
-    for index, stock in enumerate(stocks):
-        columns = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1.8, 1.8])
-        columns[0].write(stock.get("symbol", "-"))
+    editor_rows = []
+    for stock in stocks:
         name = stock.get("name") or get_stock_name(str(stock.get("symbol", "")))
-        columns[1].write(name)
-        columns[2].write("-" if stock.get("buy_price") is None else f"{float(stock['buy_price']):,.2f}")
-        columns[3].write("-" if stock.get("sell_price") is None else f"{float(stock['sell_price']):,.2f}")
-        columns[4].write("-" if stock.get("last_price") is None else f"{float(stock['last_price']):,.2f}")
-        columns[5].write(stock.get("last_checked", "尚未檢查"))
-        action_columns = columns[6].columns(2)
+        editor_rows.append({
+            "股票代碼": stock.get("symbol", "-"),
+            "股票名稱": name,
+            "目標買入價": stock.get("buy_price"),
+            "目標賣出價": stock.get("sell_price"),
+            "最新價格": stock.get("last_price"),
+            "最後檢查時間": stock.get("last_checked", "尚未檢查"),
+            "狀態": "暫停中" if stock.get("status", "active") == "paused" else "監控中",
+        })
+
+    edited_watchlist = st.data_editor(
+        pd.DataFrame(editor_rows),
+        key="watchlist_editor",
+        hide_index=True,
+        use_container_width=True,
+        disabled=["股票代碼", "股票名稱", "最新價格", "最後檢查時間", "狀態"],
+        column_config={
+            "目標買入價": st.column_config.NumberColumn(
+                ":green[目標買入價]", min_value=0.0, step=0.01, format="%.2f"
+            ),
+            "目標賣出價": st.column_config.NumberColumn(
+                ":red[目標賣出價]", min_value=0.0, step=0.01, format="%.2f"
+            ),
+            "最新價格": st.column_config.NumberColumn("最新價格", format="%.2f"),
+        },
+    )
+
+    price_changed = False
+    for stock, edited_row in zip(stocks, edited_watchlist.to_dict("records")):
+        for field, column_name in (("buy_price", "目標買入價"), ("sell_price", "目標賣出價")):
+            value = edited_row[column_name]
+            new_price = None if pd.isna(value) or float(value) <= 0 else float(value)
+            if stock.get(field) != new_price:
+                stock[field] = new_price
+                price_changed = True
+
+    if price_changed:
+        sync_error = save_watchlist(stocks, config)
+        if sync_error:
+            st.warning(sync_error)
+        else:
+            st.success("目標價格已自動儲存。")
+
+    st.markdown("#### 操作")
+    for index, stock in enumerate(stocks):
+        action_row = st.columns([3, 1.5, 1.5])
+        name = stock.get("name") or get_stock_name(str(stock.get("symbol", "")))
+        action_row[0].write(f"{stock.get('symbol', '-')}　{name}")
         is_paused = stock.get("status", "active") == "paused"
-        toggle_icon = "▶️" if is_paused else "⏸️"
+        toggle_label = "🟢 啟用" if is_paused else "🟡 暫停"
         toggle_help = "恢復監控" if is_paused else "暫停監控"
-        if action_columns[0].button(toggle_icon, key=f"status_{index}_{stock.get('symbol')}", help=toggle_help):
+        if action_row[1].button(toggle_label, key=f"status_{index}_{stock.get('symbol')}", help=toggle_help, use_container_width=True):
             stock["status"] = "active" if is_paused else "paused"
             save_watchlist(stocks, config)
             st.rerun()
-        if action_columns[1].button("🗑️", key=f"delete_{index}_{stock.get('symbol')}", help="刪除股票"):
+        if action_row[2].button("🔴 刪除", key=f"delete_{index}_{stock.get('symbol')}", help="刪除股票", use_container_width=True):
             stocks.pop(index)
             save_watchlist(stocks, config)
             st.rerun()
