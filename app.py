@@ -188,6 +188,7 @@ def send_line_message(channel_access_token: str, user_id: str, message: str) -> 
         json={
             "to": user_id,
             "messages": [{"type": "text", "text": message}],
+            "notificationDisabled": False,
         },
         timeout=15,
     )
