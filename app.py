@@ -122,22 +122,30 @@ def save_watchlist(stocks: list[dict[str, Any]], config: dict[str, Any] | None =
     return sync_watchlist_to_github(stocks, config) if config else None
 
 
+def taiwan_yfinance_symbol(stock_code: str) -> str:
+    """依 twstock 的市場資料轉換為 yfinance 使用的 TW／TWO 後綴。"""
+    stock_info = twstock.codes.get(stock_code)
+    if stock_info and stock_info.market == "上櫃":
+        return f"{stock_code}.TWO"
+    return f"{stock_code}.TW"
+
+
 def normalize_stock_symbol(raw_symbol: str) -> str:
     """將台股四位代碼或中文名稱轉為 yfinance 可用的代碼。"""
     symbol = raw_symbol.strip()
     if re.fullmatch(r"\d{4}", symbol):
-        return f"{symbol}.TW"
+        return taiwan_yfinance_symbol(symbol)
 
-    # 中文名稱以 twstock 的官方台股代碼資料為準，例如「台積電」→ 2330.TW。
+    # 中文名稱以 twstock 的台股代碼資料與市場別為準。
     if re.search(r"[\u4e00-\u9fff]", symbol):
-        matched_codes = [
-            info.code
+        matched_stocks = [
+            info
             for info in twstock.codes.values()
             if info.name == symbol
         ]
-        if not matched_codes:
+        if not matched_stocks:
             raise ValueError(f"找不到台股名稱「{symbol}」，請改輸入代碼。")
-        return f"{matched_codes[0]}.TW"
+        return taiwan_yfinance_symbol(matched_stocks[0].code)
 
     return symbol.upper()
 
@@ -145,7 +153,7 @@ def normalize_stock_symbol(raw_symbol: str) -> str:
 @st.cache_data(ttl=3600, show_spinner=False)
 def get_stock_name(symbol: str) -> str:
     """取得股票名稱：台股優先使用 twstock，其餘代碼使用 yfinance。"""
-    taiwan_match = re.fullmatch(r"(\d{4,6})\.TW", symbol.upper())
+    taiwan_match = re.fullmatch(r"(\d{4,6})\.(?:TW|TWO)", symbol.upper())
     if taiwan_match:
         stock_info = twstock.codes.get(taiwan_match.group(1))
         if stock_info:
