@@ -68,6 +68,22 @@ def normalize_stock_symbol(raw_symbol: str) -> str:
     return symbol.upper()
 
 
+@st.cache_data(ttl=3600, show_spinner=False)
+def get_stock_name(symbol: str) -> str:
+    """取得股票名稱：台股優先使用 twstock，其餘代碼使用 yfinance。"""
+    taiwan_match = re.fullmatch(r"(\d{4,6})\.TW", symbol.upper())
+    if taiwan_match:
+        stock_info = twstock.codes.get(taiwan_match.group(1))
+        if stock_info:
+            return stock_info.name
+
+    try:
+        info = yf.Ticker(symbol).get_info()
+        return str(info.get("longName") or info.get("shortName") or "-")
+    except Exception:
+        return "-"
+
+
 def get_current_price(symbol: str) -> float:
     """從 yfinance 取得最近一筆可用的收盤價。"""
     history = yf.Ticker(symbol).history(period="1d", interval="1m")
@@ -112,10 +128,13 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
 
     for stock in stocks:
         symbol = str(stock.get("symbol", "")).upper()
+        if stock.get("status", "active") == "paused":
+            messages.append(f"{symbol}: 監控已暫停")
+            continue
         try:
             price = get_current_price(symbol)
             stock["last_price"] = price
-            stock["last_checked"] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+            stock["last_checked"] = datetime.now().strftime("%m-%d %H:%M:%S")
             changed = True
             messages.append(f"{symbol}: {price:,.2f}")
 
@@ -179,8 +198,10 @@ with st.sidebar:
                 else:
                     stocks.append({
                         "symbol": symbol,
+                        "name": get_stock_name(symbol),
                         "buy_price": buy_price if buy_price > 0 else None,
                         "sell_price": sell_price if sell_price > 0 else None,
+                        "status": "active",
                         "last_alerts": {},
                     })
                     save_watchlist(stocks)
@@ -189,22 +210,22 @@ with st.sidebar:
                 st.error(str(error))
 
     st.divider()
-    st.header("LINE Messaging API 設定")
-    with st.form("line_form"):
-        line_channel_access_token = st.text_input(
-            "LINE Channel Access Token",
-            value=config.get("line_channel_access_token", ""),
-            type="password",
-        )
-        line_user_id = st.text_input("LINE User ID", value=config.get("line_user_id", ""), type="password")
-        save_config = st.form_submit_button("儲存 LINE 設定", use_container_width=True)
-    if save_config:
-        config = {
-            "line_channel_access_token": line_channel_access_token.strip(),
-            "line_user_id": line_user_id.strip(),
-        }
-        save_json(CONFIG_FILE, config)
-        st.success("LINE 設定已儲存。")
+    with st.expander("⚙️ LINE 設定", expanded=False):
+        with st.form("line_form"):
+            line_channel_access_token = st.text_input(
+                "LINE Channel Access Token",
+                value=config.get("line_channel_access_token", ""),
+                type="password",
+            )
+            line_user_id = st.text_input("LINE User ID", value=config.get("line_user_id", ""), type="password")
+            save_config = st.form_submit_button("儲存 LINE 設定", use_container_width=True)
+        if save_config:
+            config = {
+                "line_channel_access_token": line_channel_access_token.strip(),
+                "line_user_id": line_user_id.strip(),
+            }
+            save_json(CONFIG_FILE, config)
+            st.success("LINE 設定已儲存。")
 
 monitoring = st.toggle("啟動監控（每 60 秒檢查一次）", key="monitoring")
 stocks = load_watchlist()
@@ -224,18 +245,32 @@ st.subheader("監控清單")
 if not stocks:
     st.info("尚未加入任何股票。")
 else:
-    header = st.columns([2, 2, 2, 2, 2, 1])
-    for column, label in zip(header, ["股票代碼", "目標買入價", "目標賣出價", "最新價格", "最後檢查", "操作"]):
-        column.markdown(f"**{label}**")
+    header = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1.8, 1.8])
+    header[0].markdown("**股票代碼**")
+    header[1].markdown("**股票名稱**")
+    header[2].markdown("<span style='color:#00c853; font-weight:bold;'>目標買入價</span>", unsafe_allow_html=True)
+    header[3].markdown("<span style='color:#ff5252; font-weight:bold;'>目標賣出價</span>", unsafe_allow_html=True)
+    header[4].markdown("**最新價格**")
+    header[5].markdown("**最後檢查**")
+    header[6].markdown("**操作**")
 
     for index, stock in enumerate(stocks):
-        columns = st.columns([2, 2, 2, 2, 2, 1])
+        columns = st.columns([1.5, 1.5, 1.5, 1.5, 1.5, 1.8, 1.8])
         columns[0].write(stock.get("symbol", "-"))
-        columns[1].write("-" if stock.get("buy_price") is None else f"{float(stock['buy_price']):,.2f}")
-        columns[2].write("-" if stock.get("sell_price") is None else f"{float(stock['sell_price']):,.2f}")
-        columns[3].write("-" if stock.get("last_price") is None else f"{float(stock['last_price']):,.2f}")
-        columns[4].write(stock.get("last_checked", "尚未檢查"))
-        if columns[5].button("刪除", key=f"delete_{index}_{stock.get('symbol')}"):
+        name = stock.get("name") or get_stock_name(str(stock.get("symbol", "")))
+        columns[1].write(name)
+        columns[2].write("-" if stock.get("buy_price") is None else f"{float(stock['buy_price']):,.2f}")
+        columns[3].write("-" if stock.get("sell_price") is None else f"{float(stock['sell_price']):,.2f}")
+        columns[4].write("-" if stock.get("last_price") is None else f"{float(stock['last_price']):,.2f}")
+        columns[5].write(stock.get("last_checked", "尚未檢查"))
+        action_columns = columns[6].columns(2)
+        is_paused = stock.get("status", "active") == "paused"
+        toggle_label = "恢復" if is_paused else "暫停"
+        if action_columns[0].button(toggle_label, key=f"status_{index}_{stock.get('symbol')}"):
+            stock["status"] = "active" if is_paused else "paused"
+            save_watchlist(stocks)
+            st.rerun()
+        if action_columns[1].button("刪除", key=f"delete_{index}_{stock.get('symbol')}"):
             stocks.pop(index)
             save_watchlist(stocks)
             st.rerun()
