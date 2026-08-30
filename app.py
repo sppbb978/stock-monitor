@@ -196,9 +196,16 @@ def send_line_message(channel_access_token: str, user_id: str, message: str) -> 
 
 
 def can_notify(stock: dict[str, Any], alert_type: str, now: float) -> bool:
+    """保留 30 分鐘保護；改價時會清除對應時間戳，允許立刻重新通知。"""
     last_alerts = stock.get("last_alerts", {})
     last_sent = float(last_alerts.get(alert_type, 0))
     return now - last_sent >= COOLDOWN_SECONDS
+
+
+def reset_notification_state(stock: dict[str, Any], alert_type: str) -> None:
+    """目標價變更後，清除該方向的已通知旗標與冷卻時間。"""
+    stock[f"{alert_type}_notified"] = False
+    stock.setdefault("last_alerts", {}).pop(alert_type, None)
 
 
 def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[str]:
@@ -224,9 +231,19 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
             alerts: list[tuple[str, float]] = []
             buy_price = stock.get("buy_price")
             sell_price = stock.get("sell_price")
-            if buy_price is not None and price <= float(buy_price):
+            if (
+                buy_price is not None
+                and float(buy_price) > 0
+                and price <= float(buy_price)
+                and not stock.get("buy_notified", False)
+            ):
                 alerts.append(("buy", float(buy_price)))
-            if sell_price is not None and price >= float(sell_price):
+            if (
+                sell_price is not None
+                and float(sell_price) > 0
+                and price >= float(sell_price)
+                and not stock.get("sell_notified", False)
+            ):
                 alerts.append(("sell", float(sell_price)))
 
             for alert_type, target in alerts:
@@ -236,11 +253,12 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
                 text = f"📈 {symbol} 已觸發{verb}價提醒\n目前價格：{price:,.2f}\n目標價格：{target:,.2f}"
                 if channel_access_token and user_id:
                     send_line_message(channel_access_token, user_id, text)
+                    stock[f"{alert_type}_notified"] = True
+                    stock.setdefault("last_alerts", {})[alert_type] = now
+                    changed = True
                     messages.append(f"已發送 LINE：{symbol} {verb}價提醒")
                 else:
                     messages.append(f"{symbol} 已觸發{verb}價；尚未設定 LINE，未發送通知。")
-                stock.setdefault("last_alerts", {})[alert_type] = now
-                changed = True
         except Exception as error:  # 讓單一股票失敗時不影響其他監控項目。
             messages.append(f"{symbol}: 取得價格或發送通知失敗（{error}）")
 
@@ -284,6 +302,8 @@ with st.sidebar:
                         "buy_price": buy_price if buy_price > 0 else None,
                         "sell_price": sell_price if sell_price > 0 else None,
                         "status": "active",
+                        "buy_notified": False,
+                        "sell_notified": False,
                         "last_alerts": {},
                     })
                     sync_error = save_watchlist(stocks, config)
@@ -338,15 +358,22 @@ with st.sidebar:
             else:
                 st.success("GitHub 同步設定已儲存，現有清單已同步。")
 
-    with st.expander("⚙️ LINE 設定", expanded=False):
-        with st.form("line_form"):
-            line_channel_access_token = st.text_input(
-                "LINE Channel Access Token",
-                value=config.get("line_channel_access_token", ""),
-                type="password",
-            )
-            line_user_id = st.text_input("LINE User ID", value=config.get("line_user_id", ""), type="password")
-            save_config = st.form_submit_button("儲存 LINE 設定", use_container_width=True)
+    with st.popover("⚙️ LINE 設定", use_container_width=True):
+        st.caption("儲存憑證或先發送測試訊息確認 LINE 連線。")
+        line_channel_access_token = st.text_input(
+            "LINE Channel Access Token",
+            value=config.get("line_channel_access_token", ""),
+            type="password",
+            key="line_channel_access_token_input",
+        )
+        line_user_id = st.text_input(
+            "LINE User ID",
+            value=config.get("line_user_id", ""),
+            type="password",
+            key="line_user_id_input",
+        )
+        save_config = st.button("儲存 LINE 設定", use_container_width=True)
+        test_line_message = st.button("🧪 發送測試通知", use_container_width=True)
         if save_config:
             config.update({
                 "line_channel_access_token": line_channel_access_token.strip(),
@@ -354,6 +381,18 @@ with st.sidebar:
             })
             save_json(CONFIG_FILE, config)
             st.success("LINE 設定已儲存。")
+        if test_line_message:
+            try:
+                if not line_channel_access_token.strip() or not line_user_id.strip():
+                    raise ValueError("請先輸入 LINE Channel Access Token 與 LINE User ID。")
+                send_line_message(
+                    line_channel_access_token.strip(),
+                    line_user_id.strip(),
+                    "LINE 機器人連線成功測試！",
+                )
+                st.success("測試通知已發送。")
+            except (requests.RequestException, ValueError) as error:
+                st.error(f"測試通知發送失敗：{error}")
 
 monitoring = st.toggle("啟動監控（每 60 秒檢查一次）", value=True, key="monitoring")
 
@@ -382,6 +421,7 @@ else:
             "最新價格": stock.get("last_price"),
             "最後檢查時間": stock.get("last_checked", "尚未檢查"),
             "狀態": "暫停中" if stock.get("status", "active") == "paused" else "監控中",
+            "刪除": False,
         })
 
     edited_watchlist = st.data_editor(
@@ -389,7 +429,7 @@ else:
         key="watchlist_editor",
         hide_index=True,
         use_container_width=True,
-        disabled=["股票代碼", "股票名稱", "最新價格", "最後檢查時間", "狀態"],
+        disabled=["股票代碼", "股票名稱", "最新價格", "最後檢查時間"],
         column_config={
             "目標買入價": st.column_config.NumberColumn(
                 ":green[目標買入價]", min_value=0.0, step=0.01, format="%.2f"
@@ -398,38 +438,47 @@ else:
                 ":red[目標賣出價]", min_value=0.0, step=0.01, format="%.2f"
             ),
             "最新價格": st.column_config.NumberColumn("最新價格", format="%.2f"),
+            "狀態": st.column_config.SelectboxColumn("狀態", options=["監控中", "暫停中"], required=True),
+            "刪除": st.column_config.CheckboxColumn("刪除", help="勾選後會立即刪除此股票"),
         },
     )
 
     price_changed = False
+    watchlist_changed = False
+    deleted_stock = False
+    remaining_stocks: list[dict[str, Any]] = []
     for stock, edited_row in zip(stocks, edited_watchlist.to_dict("records")):
+        if bool(edited_row["刪除"]):
+            deleted_stock = True
+            watchlist_changed = True
+            continue
         for field, column_name in (("buy_price", "目標買入價"), ("sell_price", "目標賣出價")):
             value = edited_row[column_name]
             new_price = None if pd.isna(value) or float(value) <= 0 else float(value)
             if stock.get(field) != new_price:
                 stock[field] = new_price
+                reset_notification_state(stock, "buy" if field == "buy_price" else "sell")
                 price_changed = True
+                watchlist_changed = True
+        new_status = "paused" if edited_row["狀態"] == "暫停中" else "active"
+        if stock.get("status", "active") != new_status:
+            stock["status"] = new_status
+            watchlist_changed = True
+        remaining_stocks.append(stock)
 
-    if price_changed:
+    if deleted_stock:
+        stocks[:] = remaining_stocks
+
+    if watchlist_changed:
         sync_error = save_watchlist(stocks, config)
         if sync_error:
             st.warning(sync_error)
         else:
-            st.success("目標價格已自動儲存。")
+            st.success("監控清單已儲存。")
 
-    st.markdown("#### 操作")
-    for index, stock in enumerate(stocks):
-        action_row = st.columns([3, 1.5, 1.5])
-        name = stock.get("name") or get_stock_name(str(stock.get("symbol", "")))
-        action_row[0].write(f"{stock.get('symbol', '-')}　{name}")
-        is_paused = stock.get("status", "active") == "paused"
-        toggle_label = "🟢 啟用" if is_paused else "🟡 暫停"
-        toggle_help = "恢復監控" if is_paused else "暫停監控"
-        if action_row[1].button(toggle_label, key=f"status_{index}_{stock.get('symbol')}", help=toggle_help, use_container_width=True):
-            stock["status"] = "active" if is_paused else "paused"
-            save_watchlist(stocks, config)
-            st.rerun()
-        if action_row[2].button("🔴 刪除", key=f"delete_{index}_{stock.get('symbol')}", help="刪除股票", use_container_width=True):
-            stocks.pop(index)
-            save_watchlist(stocks, config)
+        if price_changed and stocks:
+            with st.spinner("正在以新目標價立即比對…"):
+                immediate_messages = run_monitor(stocks, config)
+            st.info("｜".join(immediate_messages))
+        if deleted_stock:
             st.rerun()
