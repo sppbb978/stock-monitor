@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import re
 import time
@@ -20,6 +21,7 @@ BASE_DIR = Path(__file__).resolve().parent
 WATCHLIST_FILE = BASE_DIR / "watchlist.json"
 CONFIG_FILE = BASE_DIR / "config.json"
 COOLDOWN_SECONDS = 30 * 60
+GITHUB_WATCHLIST_PATH = "watchlist.json"
 
 
 def load_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
@@ -39,13 +41,85 @@ def save_json(path: Path, data: dict[str, Any]) -> None:
         json.dump(data, file, ensure_ascii=False, indent=2)
 
 
-def load_watchlist() -> list[dict[str, Any]]:
+def github_settings(config: dict[str, Any]) -> tuple[str, str, str]:
+    """優先讀取 Streamlit secrets，其次讀取介面儲存的 GitHub 設定。"""
+    try:
+        secrets: dict[str, Any] = st.secrets
+    except FileNotFoundError:
+        secrets = {}
+    token = str(secrets.get("github_token", config.get("github_token", ""))).strip()
+    repo = str(secrets.get("github_repo", config.get("github_repo", ""))).strip()
+    branch = str(secrets.get("github_branch", config.get("github_branch", "main"))).strip() or "main"
+    return token, repo, branch
+
+
+def get_remote_watchlist(config: dict[str, Any]) -> list[dict[str, Any]] | None:
+    """從 GitHub 下載已同步的監控清單；未設定時不執行。"""
+    token, repo, branch = github_settings(config)
+    if not token or not repo:
+        return None
+    response = requests.get(
+        f"https://api.github.com/repos/{repo}/contents/{GITHUB_WATCHLIST_PATH}",
+        headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+        params={"ref": branch},
+        timeout=15,
+    )
+    if response.status_code == 404:
+        return None
+    response.raise_for_status()
+    encoded_content = response.json().get("content", "")
+    payload = json.loads(base64.b64decode(encoded_content).decode("utf-8"))
+    stocks = payload.get("stocks", [])
+    return stocks if isinstance(stocks, list) else None
+
+
+def sync_watchlist_to_github(stocks: list[dict[str, Any]], config: dict[str, Any]) -> str | None:
+    """將清單上傳至 GitHub；失敗時回傳錯誤訊息但不影響本機資料。"""
+    token, repo, branch = github_settings(config)
+    if not token or not repo:
+        return None
+    try:
+        url = f"https://api.github.com/repos/{repo}/contents/{GITHUB_WATCHLIST_PATH}"
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+        current = requests.get(url, headers=headers, params={"ref": branch}, timeout=15)
+        sha = current.json().get("sha") if current.ok else None
+        if not current.ok and current.status_code != 404:
+            current.raise_for_status()
+
+        content = json.dumps({"stocks": stocks}, ensure_ascii=False, indent=2).encode("utf-8")
+        payload: dict[str, Any] = {
+            "message": "chore: sync stock watchlist",
+            "content": base64.b64encode(content).decode("ascii"),
+            "branch": branch,
+        }
+        if sha:
+            payload["sha"] = sha
+        response = requests.put(url, headers=headers, json=payload, timeout=15)
+        response.raise_for_status()
+        return None
+    except (requests.RequestException, ValueError) as error:
+        return f"GitHub 同步失敗：{error}"
+
+
+def load_watchlist(config: dict[str, Any] | None = None) -> list[dict[str, Any]]:
     data = load_json(WATCHLIST_FILE, {"stocks": []})
-    return data.get("stocks", []) if isinstance(data.get("stocks"), list) else []
+    stocks = data.get("stocks", []) if isinstance(data.get("stocks"), list) else []
+    # 每個瀏覽器工作階段只在首次載入時從遠端還原，避免每次互動都呼叫 GitHub。
+    if config and not st.session_state.get("remote_watchlist_loaded", False):
+        try:
+            remote_stocks = get_remote_watchlist(config)
+            if remote_stocks is not None:
+                stocks = remote_stocks
+                save_json(WATCHLIST_FILE, {"stocks": stocks})
+        except (requests.RequestException, ValueError, json.JSONDecodeError):
+            pass
+        st.session_state.remote_watchlist_loaded = True
+    return stocks
 
 
-def save_watchlist(stocks: list[dict[str, Any]]) -> None:
+def save_watchlist(stocks: list[dict[str, Any]], config: dict[str, Any] | None = None) -> str | None:
     save_json(WATCHLIST_FILE, {"stocks": stocks})
+    return sync_watchlist_to_github(stocks, config) if config else None
 
 
 def normalize_stock_symbol(raw_symbol: str) -> str:
@@ -162,7 +236,9 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
             messages.append(f"{symbol}: 取得價格或發送通知失敗（{error}）")
 
     if changed:
-        save_watchlist(stocks)
+        sync_error = save_watchlist(stocks, config)
+        if sync_error:
+            messages.append(sync_error)
     return messages
 
 
@@ -170,10 +246,8 @@ st.set_page_config(page_title="股票到價提醒", page_icon="📈", layout="wi
 st.title("📈 股票關鍵價位監控")
 st.caption("使用 yfinance 取得報價，觸及買入／賣出目標價時通知 LINE。")
 
-if "monitoring" not in st.session_state:
-    st.session_state.monitoring = False
-
 config = load_json(CONFIG_FILE, {"line_channel_access_token": "", "line_user_id": ""})
+stocks = load_watchlist(config)
 
 with st.sidebar:
     st.header("新增股票")
@@ -192,7 +266,6 @@ with st.sidebar:
         else:
             try:
                 symbol = normalize_stock_symbol(stock_input)
-                stocks = load_watchlist()
                 if any(item.get("symbol", "").upper() == symbol for item in stocks):
                     st.error("此股票代碼已在監控清單中。")
                 else:
@@ -204,12 +277,58 @@ with st.sidebar:
                         "status": "active",
                         "last_alerts": {},
                     })
-                    save_watchlist(stocks)
+                    sync_error = save_watchlist(stocks, config)
                     st.success(f"已加入 {symbol}")
+                    if sync_error:
+                        st.warning(sync_error)
             except ValueError as error:
                 st.error(str(error))
 
     st.divider()
+    with st.expander("💾 備份與 GitHub 同步", expanded=False):
+        st.download_button(
+            "匯出監控清單 JSON",
+            data=json.dumps({"stocks": stocks}, ensure_ascii=False, indent=2),
+            file_name="watchlist-backup.json",
+            mime="application/json",
+            use_container_width=True,
+        )
+        backup_file = st.file_uploader("匯入監控清單 JSON", type=["json"])
+        if backup_file and st.button("匯入並覆蓋目前清單", use_container_width=True):
+            try:
+                backup_data = json.loads(backup_file.getvalue().decode("utf-8"))
+                imported_stocks = backup_data.get("stocks")
+                if not isinstance(imported_stocks, list):
+                    raise ValueError("備份檔案缺少 stocks 清單。")
+                sync_error = save_watchlist(imported_stocks, config)
+                if sync_error:
+                    st.warning(sync_error)
+                else:
+                    st.success("監控清單已匯入。")
+                st.rerun()
+            except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+                st.error(f"無法匯入備份：{error}")
+
+        st.caption("可將 Token／Repo 放在 Streamlit secrets；若填在此處，清單每次變動會自動同步到 GitHub。")
+        with st.form("github_form"):
+            github_token = st.text_input("GitHub Token", value=config.get("github_token", ""), type="password")
+            github_repo = st.text_input("GitHub Repo", value=config.get("github_repo", ""), placeholder="owner/repository")
+            github_branch = st.text_input("GitHub Branch", value=config.get("github_branch", "main"))
+            save_github_config = st.form_submit_button("儲存 GitHub 同步設定", use_container_width=True)
+        if save_github_config:
+            config.update({
+                "github_token": github_token.strip(),
+                "github_repo": github_repo.strip(),
+                "github_branch": github_branch.strip() or "main",
+            })
+            save_json(CONFIG_FILE, config)
+            st.session_state.remote_watchlist_loaded = False
+            sync_error = save_watchlist(stocks, config)
+            if sync_error:
+                st.warning(sync_error)
+            else:
+                st.success("GitHub 同步設定已儲存，現有清單已同步。")
+
     with st.expander("⚙️ LINE 設定", expanded=False):
         with st.form("line_form"):
             line_channel_access_token = st.text_input(
@@ -220,15 +339,14 @@ with st.sidebar:
             line_user_id = st.text_input("LINE User ID", value=config.get("line_user_id", ""), type="password")
             save_config = st.form_submit_button("儲存 LINE 設定", use_container_width=True)
         if save_config:
-            config = {
+            config.update({
                 "line_channel_access_token": line_channel_access_token.strip(),
                 "line_user_id": line_user_id.strip(),
-            }
+            })
             save_json(CONFIG_FILE, config)
             st.success("LINE 設定已儲存。")
 
-monitoring = st.toggle("啟動監控（每 60 秒檢查一次）", key="monitoring")
-stocks = load_watchlist()
+monitoring = st.toggle("啟動監控（每 60 秒檢查一次）", value=True, key="monitoring")
 
 if monitoring:
     st_autorefresh(interval=60_000, key="stock_monitor_refresh")
@@ -265,12 +383,13 @@ else:
         columns[5].write(stock.get("last_checked", "尚未檢查"))
         action_columns = columns[6].columns(2)
         is_paused = stock.get("status", "active") == "paused"
-        toggle_label = "恢復" if is_paused else "暫停"
-        if action_columns[0].button(toggle_label, key=f"status_{index}_{stock.get('symbol')}"):
+        toggle_icon = "▶️" if is_paused else "⏸️"
+        toggle_help = "恢復監控" if is_paused else "暫停監控"
+        if action_columns[0].button(toggle_icon, key=f"status_{index}_{stock.get('symbol')}", help=toggle_help):
             stock["status"] = "active" if is_paused else "paused"
-            save_watchlist(stocks)
+            save_watchlist(stocks, config)
             st.rerun()
-        if action_columns[1].button("刪除", key=f"delete_{index}_{stock.get('symbol')}"):
+        if action_columns[1].button("🗑️", key=f"delete_{index}_{stock.get('symbol')}", help="刪除股票"):
             stocks.pop(index)
-            save_watchlist(stocks)
+            save_watchlist(stocks, config)
             st.rerun()
