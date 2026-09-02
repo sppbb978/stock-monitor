@@ -6,19 +6,19 @@
       "sell_price": 1200.0,
       "last_alerts": {},
       "last_price": 970.0,
-      "last_checked": "09-02 14:55:34"
+      "last_checked": "09-02 15:00:09"
     },
     {
       "symbol": "3293.TWO",
       "name": "鈊象",
-      "buy_price": 20.0,
-      "sell_price": 5000.0,
+      "buy_price": 705.0,
+      "sell_price": 800.0,
       "status": "active",
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {},
       "last_price": 706.0,
-      "last_checked": "09-02 14:55:34"
+      "last_checked": "09-02 15:00:10"
     },
     {
       "symbol": "3211.TWO",
@@ -30,7 +30,7 @@
       "sell_notified": false,
       "last_alerts": {},
       "last_price": 392.5,
-      "last_checked": "09-02 14:55:34"
+      "last_checked": "09-02 15:00:10"
     },
     {
       "symbol": "8916.TWO",
@@ -42,7 +42,7 @@
       "sell_notified": false,
       "last_alerts": {},
       "last_price": 41.29999923706055,
-      "last_checked": "09-02 14:55:34"
+      "last_checked": "09-02 15:00:10"
     }
   ]
 }
