@@ -1,4 +1,4 @@
-"""Streamlit 股票關鍵價位監控工具 (終極完美修復版)。"""
+"""Streamlit 股票關鍵價位監控工具 (終極修復完整版)。"""
 
 from __future__ import annotations
 
@@ -274,7 +274,6 @@ def fetch_latest_prices(symbols: list[str]) -> dict[str, float]:
         for sym in missing_symbols:
             try:
                 ticker = yf.Ticker(sym)
-                # 修復：FastInfo 是物件而非 dict，必須使用 getattr 讀取屬性而非 .get()
                 fast_info = ticker.fast_info
                 fast_price = getattr(fast_info, "last_price", None) or getattr(
                     fast_info, "regular_market_previous_close", None
@@ -434,7 +433,7 @@ with st.sidebar:
                     })
                     sync_error = save_watchlist(stocks, config)
                     if sync_error:
-                        st.error(sync_error)  # 修復：有錯誤時不呼叫 rerun 以確保警告維持在畫面上
+                        st.error(sync_error)
                     else:
                         st.success(f"已加入 {symbol}")
                         st.rerun()
@@ -474,20 +473,21 @@ with st.sidebar:
             github_branch = st.text_input("GitHub Branch", value=config.get("github_branch", "main"))
             save_github_config = st.form_submit_button("儲存 GitHub 同步設定", use_container_width=True)
 
-        if save_github_config:
-            update_config({
-                "github_token": github_token.strip(),
-                "github_repo": github_repo.strip(),
-                "github_branch": github_branch.strip() or "main",
-            })
-            st.session_state.remote_watchlist_loaded = False
-            sync_error = save_watchlist(stocks, st.session_state.config)
-            clear_widget_state()
-            if sync_error:
-                st.error(sync_error)
-            else:
-                st.success("GitHub 同步設定已儲存。")
-                st.rerun()
+            # 💡 已修正：放進 form 裡面，按下按鈕時能準確抓到剛填寫的 Token 並存入 config.json
+            if save_github_config:
+                update_config({
+                    "github_token": github_token.strip(),
+                    "github_repo": github_repo.strip(),
+                    "github_branch": github_branch.strip() or "main",
+                })
+                st.session_state.remote_watchlist_loaded = False
+                sync_error = save_watchlist(stocks, st.session_state.config)
+                clear_widget_state()
+                if sync_error:
+                    st.error(sync_error)
+                else:
+                    st.success("GitHub 同步設定已儲存。")
+                    st.rerun()
 
     with st.popover("⚙️ LINE 設定", use_container_width=True):
         st.caption("儲存憑證或發送測試通知。")
@@ -542,7 +542,6 @@ else:
         with st.spinner("正在更新價格與檢查提醒…"):
             monitor_messages = run_monitor(stocks, config)
         
-        # 修復：Log 逐行展示，避免拼成一行混亂長字串
         with st.expander("🔍 即時檢查日誌", expanded=True):
             for msg in monitor_messages:
                 st.write(msg)
@@ -566,7 +565,6 @@ else:
         symbol = str(stock.get("symbol", "-"))
         columns[0].write(symbol)
 
-        # 讀取股票名稱；若無則自動補充
         name = stock.get("name")
         if not name:
             name = get_stock_name(symbol)
@@ -576,7 +574,6 @@ else:
         current_buy = float(stock.get("buy_price") or 0.0)
         current_sell = float(stock.get("sell_price") or 0.0)
 
-        # 修復：移除 key 中的 index，避免列表項目刪除遞移時產生 Session State 錯位
         new_buy = columns[2].number_input(
             "買入價",
             min_value=0.0,
@@ -597,7 +594,6 @@ else:
         columns[4].write("-" if stock.get("last_price") is None else f"{float(stock['last_price']):,.2f}")
         columns[5].write(stock.get("last_checked", "尚未檢查"))
 
-        # 更新目標價判斷
         for field, alert_type, new_price in (("buy_price", "buy", new_buy), ("sell_price", "sell", new_sell)):
             normalized_price = None if new_price <= 0 else round(float(new_price), 4)
             if stock.get(field) != normalized_price:
