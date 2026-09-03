@@ -49,6 +49,16 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "8046.TW",
+      "name": "南電",
+      "buy_price": 890.0,
+      "sell_price": 1200.0,
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
