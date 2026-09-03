@@ -2,8 +2,8 @@
   "stocks": [
     {
       "symbol": "3037.TW",
-      "name": null,
-      "buy_price": null,
+      "name": "欣興",
+      "buy_price": 750.0,
       "sell_price": 1200.0,
       "status": "active",
       "buy_notified": false,
@@ -13,7 +13,7 @@
     {
       "symbol": "3293.TWO",
       "name": "鈊象",
-      "buy_price": 705.0,
+      "buy_price": 634.5,
       "sell_price": 800.0,
       "status": "active",
       "buy_notified": false,
@@ -43,14 +43,12 @@
     {
       "symbol": "1795.TW",
       "name": "美時",
-      "buy_price": 185.0,
+      "buy_price": 166.5,
       "sell_price": 269.0,
       "status": "active",
-      "buy_notified": true,
+      "buy_notified": false,
       "sell_notified": false,
-      "last_alerts": {
-        "buy": 1788364323.04125
-      }
+      "last_alerts": {}
     }
   ]
 }
