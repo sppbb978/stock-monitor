@@ -59,6 +59,16 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "2308.TW",
+      "name": "台達電",
+      "buy_price": 1510.0,
+      "sell_price": null,
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
