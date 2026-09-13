@@ -69,6 +69,36 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "6804.TWO",
+      "name": "明係",
+      "buy_price": null,
+      "sell_price": 20.1,
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
+    },
+    {
+      "symbol": "4129.TWO",
+      "name": "聯合",
+      "buy_price": 75.0,
+      "sell_price": 100.0,
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
+    },
+    {
+      "symbol": "6570.TWO",
+      "name": "維田",
+      "buy_price": 38.0,
+      "sell_price": 56.0,
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
