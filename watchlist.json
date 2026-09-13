@@ -99,6 +99,16 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "6491.TW",
+      "name": "晶碩",
+      "buy_price": 367.5,
+      "sell_price": 482.0,
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
