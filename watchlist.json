@@ -106,9 +106,11 @@
       "buy_price": 367.5,
       "sell_price": 482.0,
       "status": "active",
-      "buy_notified": false,
+      "buy_notified": true,
       "sell_notified": false,
-      "last_alerts": {}
+      "last_alerts": {
+        "buy": 1789309047.9773543
+      }
     }
   ]
 }
