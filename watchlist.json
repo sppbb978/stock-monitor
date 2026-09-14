@@ -109,6 +109,16 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "3005.TW",
+      "name": "神基",
+      "buy_price": 110.0,
+      "sell_price": 146.0,
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
