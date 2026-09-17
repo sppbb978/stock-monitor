@@ -129,6 +129,16 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "6274.TWO",
+      "name": "台燿",
+      "buy_price": 1250.0,
+      "sell_price": 1580.0,
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
