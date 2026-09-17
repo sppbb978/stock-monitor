@@ -119,6 +119,16 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "700093.TWO",
+      "name": "台燿凱基54購05",
+      "buy_price": 1250.0,
+      "sell_price": 1580.0,
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
