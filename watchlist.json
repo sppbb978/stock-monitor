@@ -129,6 +129,16 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "2327.TW",
+      "name": "國巨*",
+      "buy_price": 529.0,
+      "sell_price": 1130.0,
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
