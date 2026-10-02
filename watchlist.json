@@ -106,7 +106,7 @@
       ],
       "buy_price": 890.0,
       "sell_price": 1200.0,
-      "note": "",
+      "note": "未購入已到價",
       "status": "paused",
       "buy_notified_flags": [
         false,
