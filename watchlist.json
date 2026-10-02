@@ -31,7 +31,7 @@
       "buy_price": 634.5,
       "sell_price": 800.0,
       "note": "",
-      "status": "active",
+      "status": "paused",
       "buy_notified_flags": [
         false,
         false
@@ -241,8 +241,8 @@
       ],
       "buy_price": 1250.0,
       "sell_price": 1580.0,
-      "note": "",
-      "status": "active",
+      "note": "到價出清",
+      "status": "paused",
       "buy_notified_flags": [
         false,
         false
