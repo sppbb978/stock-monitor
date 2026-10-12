@@ -283,7 +283,7 @@
       ],
       "buy_price": 136.8,
       "sell_price": 250.0,
-      "note": "市場估值已偏高",
+      "note": "營收結構改變、市場估值已偏高",
       "status": "active",
       "buy_notified_flags": [
         false,
