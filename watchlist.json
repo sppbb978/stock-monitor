@@ -37,8 +37,10 @@
         false
       ],
       "buy_notified": false,
-      "sell_notified": false,
-      "last_alerts": {}
+      "sell_notified": true,
+      "last_alerts": {
+        "sell": 1791772636.7892215
+      }
     },
     {
       "symbol": "3211.TWO",
@@ -263,6 +265,25 @@
       "buy_price": 528.0,
       "sell_price": 1130.0,
       "note": "",
+      "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
+    },
+    {
+      "symbol": "4576.TW",
+      "name": "大銀微系統",
+      "buy_prices": [
+        136.8,
+        105.0
+      ],
+      "buy_price": 136.8,
+      "sell_price": 250.0,
+      "note": "市場估值已偏高",
       "status": "active",
       "buy_notified_flags": [
         false,
