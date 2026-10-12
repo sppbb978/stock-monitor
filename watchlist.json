@@ -292,6 +292,25 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "6245.TWO",
+      "name": "立端",
+      "buy_prices": [
+        74.8,
+        61.6
+      ],
+      "buy_price": 74.8,
+      "sell_price": 99.0,
+      "note": "",
+      "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
