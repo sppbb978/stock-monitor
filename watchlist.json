@@ -311,6 +311,25 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "8042.TWO",
+      "name": "金山電",
+      "buy_prices": [
+        90.0,
+        129.0
+      ],
+      "buy_price": 90.0,
+      "sell_price": 180.0,
+      "note": "",
+      "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
