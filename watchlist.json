@@ -330,6 +330,25 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "1101.TW",
+      "name": "台泥",
+      "buy_prices": [
+        22.4,
+        21.25
+      ],
+      "buy_price": 22.4,
+      "sell_price": 28.8,
+      "note": "",
+      "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
