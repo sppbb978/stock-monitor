@@ -349,6 +349,25 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "9802.TW",
+      "name": "鈺齊-KY",
+      "buy_prices": [
+        66.4,
+        55.0
+      ],
+      "buy_price": 66.4,
+      "sell_price": 88.0,
+      "note": "",
+      "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
