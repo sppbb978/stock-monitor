@@ -359,15 +359,17 @@
       ],
       "buy_price": 66.4,
       "sell_price": 88.0,
-      "note": "",
+      "note": "緩慢復甦",
       "status": "active",
       "buy_notified_flags": [
-        false,
+        true,
         false
       ],
-      "buy_notified": false,
+      "buy_notified": true,
       "sell_notified": false,
-      "last_alerts": {}
+      "last_alerts": {
+        "buy_0": 1791817823.6847248
+      }
     }
   ]
 }
