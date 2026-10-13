@@ -370,6 +370,25 @@
       "last_alerts": {
         "buy_0": 1791817823.6847248
       }
+    },
+    {
+      "symbol": "4958.TW",
+      "name": "臻鼎-KY",
+      "buy_prices": [
+        212.5,
+        175.0
+      ],
+      "buy_price": 212.5,
+      "sell_price": 600.0,
+      "note": "",
+      "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
