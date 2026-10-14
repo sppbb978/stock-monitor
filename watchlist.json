@@ -389,6 +389,25 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "8109.TWO",
+      "name": "博大",
+      "buy_prices": [
+        120.7,
+        99.4
+      ],
+      "buy_price": 120.7,
+      "sell_price": 148.5,
+      "note": "",
+      "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
