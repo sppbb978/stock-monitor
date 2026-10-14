@@ -399,7 +399,7 @@
       ],
       "buy_price": 120.7,
       "sell_price": 148.5,
-      "note": "",
+      "note": "到價可以減碼",
       "status": "active",
       "buy_notified_flags": [
         false,
