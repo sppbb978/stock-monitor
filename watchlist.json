@@ -408,6 +408,25 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "2383.TW",
+      "name": "台光電",
+      "buy_prices": [
+        4300.0,
+        2500.0
+      ],
+      "buy_price": 4300.0,
+      "sell_price": null,
+      "note": "成本極低/基本不賣/除非競爭力消失or成長放緩",
+      "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
