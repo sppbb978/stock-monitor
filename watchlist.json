@@ -105,7 +105,7 @@
         null
       ],
       "buy_price": 890.0,
-      "sell_price": 1200.0,
+      "sell_price": null,
       "note": "1200/未購入已到價",
       "status": "active",
       "buy_notified_flags": [
@@ -113,10 +113,8 @@
         false
       ],
       "buy_notified": false,
-      "sell_notified": true,
-      "last_alerts": {
-        "sell": 1790922228.0844507
-      }
+      "sell_notified": false,
+      "last_alerts": {}
     },
     {
       "symbol": "2308.TW",
