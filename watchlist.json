@@ -240,7 +240,7 @@
         null
       ],
       "buy_price": 1250.0,
-      "sell_price": 1580.0,
+      "sell_price": null,
       "note": "1580/到價出清",
       "status": "active",
       "buy_notified_flags": [
@@ -248,10 +248,8 @@
         false
       ],
       "buy_notified": false,
-      "sell_notified": true,
-      "last_alerts": {
-        "sell": 1790922228.0844507
-      }
+      "sell_notified": false,
+      "last_alerts": {}
     },
     {
       "symbol": "2327.TW",
