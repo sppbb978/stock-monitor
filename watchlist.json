@@ -27,7 +27,7 @@
         null
       ],
       "buy_price": 634.5,
-      "sell_price": 800.0,
+      "sell_price": null,
       "note": "800/已出清",
       "status": "active",
       "buy_notified_flags": [
@@ -35,10 +35,8 @@
         false
       ],
       "buy_notified": false,
-      "sell_notified": true,
-      "last_alerts": {
-        "sell": 1791772636.7892215
-      }
+      "sell_notified": false,
+      "last_alerts": {}
     },
     {
       "symbol": "3211.TWO",
