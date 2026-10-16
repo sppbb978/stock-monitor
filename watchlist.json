@@ -47,7 +47,7 @@
       ],
       "buy_price": 340.0,
       "sell_price": 625.0,
-      "note": "",
+      "note": "AI伺服器BBU供應商/過度定價/等恐慌",
       "status": "active",
       "buy_notified_flags": [
         false,
@@ -66,7 +66,7 @@
       ],
       "buy_price": 35.7,
       "sell_price": 46.8,
-      "note": "",
+      "note": "庫存調整期/觀察",
       "status": "active",
       "buy_notified_flags": [
         false,
@@ -118,12 +118,12 @@
       "symbol": "2308.TW",
       "name": "台達電",
       "buy_prices": [
-        1510.0,
-        null
+        1585.0,
+        826.0
       ],
-      "buy_price": 1510.0,
+      "buy_price": 1585.0,
       "sell_price": 2000.0,
-      "note": "",
+      "note": "入場價格不美/獲利有限/等恐慌",
       "status": "active",
       "buy_notified_flags": [
         false,
@@ -354,10 +354,10 @@
       "note": "緩慢復甦",
       "status": "active",
       "buy_notified_flags": [
-        true,
+        false,
         false
       ],
-      "buy_notified": true,
+      "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {
         "buy_0": 1791817823.6847248
