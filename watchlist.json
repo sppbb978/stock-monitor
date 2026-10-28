@@ -263,10 +263,10 @@
       "note": "",
       "status": "active",
       "buy_notified_flags": [
-        true,
+        false,
         false
       ],
-      "buy_notified": true,
+      "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {
         "buy_0": 1792636648.8494337
@@ -299,8 +299,8 @@
         61.6
       ],
       "buy_price": 74.8,
-      "sell_price": 99.0,
-      "note": "",
+      "sell_price": null,
+      "note": "99/會配股等回檔",
       "status": "active",
       "buy_notified_flags": [
         false,
@@ -434,8 +434,8 @@
         473.3
       ],
       "buy_price": 573.2,
-      "sell_price": 650.0,
-      "note": "",
+      "sell_price": null,
+      "note": "650/到價先相信AI出清，後面不貪",
       "status": "active",
       "buy_notified_flags": [
         false,
