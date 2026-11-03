@@ -172,12 +172,14 @@
       "note": "",
       "status": "active",
       "buy_notified_flags": [
-        false,
+        true,
         false
       ],
-      "buy_notified": false,
+      "buy_notified": true,
       "sell_notified": false,
-      "last_alerts": {}
+      "last_alerts": {
+        "buy_0": 1793678444.9870768
+      }
     },
     {
       "symbol": "6570.TWO",
