@@ -149,7 +149,7 @@
       "buy_price": 15.0,
       "sell_price": 20.1,
       "note": "",
-      "status": "active",
+      "status": "paused",
       "buy_notified_flags": [
         true,
         false
