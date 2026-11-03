@@ -460,7 +460,7 @@
       ],
       "buy_price": 112.0,
       "sell_price": 130.0,
-      "note": "",
+      "note": "原料大漲，成本轉嫁注意終端銷量",
       "status": "active",
       "buy_notified_flags": [
         false,
