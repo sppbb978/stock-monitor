@@ -184,8 +184,17 @@ def load_watchlist(config: dict[str, Any] | None = None) -> list[dict[str, Any]]
     """讀取本地 Watchlist，首次進入頁面時嘗試由 GitHub 還原。"""
     data = load_json(WATCHLIST_FILE, {"stocks": []})
     stocks = data.get("stocks", []) if isinstance(data.get("stocks"), list) else []
+    # 相容舊版 buy_prices=[第一批, 第二批] 與 note 欄位，避免再次遺失歷史設定。
+    for stock in stocks:
+        legacy_buy_prices = stock.get("buy_prices")
+        if isinstance(legacy_buy_prices, list):
+            stock.setdefault("buy_price", legacy_buy_prices[0] if legacy_buy_prices else None)
+            stock.setdefault("buy_price_2", legacy_buy_prices[1] if len(legacy_buy_prices) > 1 else None)
+        if "notes" not in stock and "note" in stock:
+            stock["notes"] = str(stock.get("note") or "")
 
-    if config and not st.session_state.get("remote_watchlist_loaded", False):
+    # 本機已有清單時絕不以遠端資料覆寫，避免手動備份或剛還原的資料被蓋掉。
+    if config and not stocks and not st.session_state.get("remote_watchlist_loaded", False):
         try:
             remote_stocks = get_remote_watchlist(config)
             if remote_stocks is not None:
@@ -433,6 +442,10 @@ st.markdown(
     /* 以直接輸入為主，收起 number_input 預設的加減控制鈕 */
     div[data-testid="stNumberInput"] button { display: none; }
     div[data-testid="stNumberInput"] input { text-align: right; }
+    /* 清單專用的緊湊排版：縮小欄距與操作鈕高度。 */
+    div[data-testid="stHorizontalBlock"] { gap: .3rem; }
+    div[data-testid="stButton"] > button { min-height: 1.7rem; padding: .08rem .2rem; font-size: .8rem; }
+    div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input { min-height: 1.7rem; padding: .1rem .3rem; }
     .price-buy { color: #5c4400; font-weight: 800; background: #ffd43b; padding: .15rem .4rem; border-radius: .3rem; }
     .price-sell { color: #ffffff; font-weight: 800; background: #e03131; padding: .15rem .4rem; border-radius: .3rem; }
     </style>""",
