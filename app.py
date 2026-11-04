@@ -27,6 +27,8 @@ BASE_DIR = Path(__file__).resolve().parent
 WATCHLIST_FILE = BASE_DIR / "watchlist.json"
 CONFIG_FILE = BASE_DIR / "config.json"
 COOLDOWN_SECONDS = 30 * 60  # 30 分鐘冷卻
+# 休市節流：休市、盤後或暫時無報價時，不在每次自動更新都重複寫入日誌。
+MARKET_CLOSED_LOG_THROTTLE_SECONDS = 30 * 60
 GITHUB_WATCHLIST_PATH = "watchlist.json"
 
 
@@ -105,6 +107,7 @@ def clean_stocks_for_github(stocks: list[dict[str, Any]]) -> list[dict[str, Any]
             "symbol": s.get("symbol"),
             "name": s.get("name"),
             "buy_price": s.get("buy_price"),
+            "buy_price_2": s.get("buy_price_2"),
             "sell_price": s.get("sell_price"),
             "sell_price_2": s.get("sell_price_2"),
             "reference_price": s.get("reference_price"),
@@ -326,6 +329,16 @@ def can_notify(stock: dict[str, Any], alert_type: str, now: float) -> bool:
     return (now - last_sent) >= COOLDOWN_SECONDS
 
 
+def should_report_market_closed(symbol: str, now: float) -> bool:
+    """休市節流：同一標的沒有即時價格時，每 30 分鐘才提示一次。"""
+    key = f"market_closed_report_{symbol}"
+    last_reported = float(st.session_state.get(key, 0))
+    if now - last_reported < MARKET_CLOSED_LOG_THROTTLE_SECONDS:
+        return False
+    st.session_state[key] = now
+    return True
+
+
 def reset_notification_state(stock: dict[str, Any], alert_type: str) -> None:
     """目標價變更後，清除該方向的已通知狀態。"""
     stock[f"{alert_type}_notified"] = False
@@ -353,15 +366,18 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
 
         price = fetched_prices.get(symbol)
         if price is None:
-            messages.append(f"⚠️ {symbol}: 暫時無法取得價格")
+            # 休市節流：保留休市／無報價提示，但避免自動刷新時洗版。
+            if should_report_market_closed(symbol, now):
+                messages.append(f"⚪ {symbol}: 休市中或暫時無法取得即時價格")
             continue
 
         stock["last_price"] = price
-        stock["last_checked"] = datetime.now(TAIPEI_TZ).strftime("%m-%d %H:%M:%S")
+        stock["last_checked"] = datetime.now(TAIPEI_TZ).strftime("%H:%M")
         messages.append(f"🔹 {symbol}: {price:,.2f}")
 
         # 提醒完全由 30 分鐘冷卻控制；不需要價格回彈才可再次提醒。
         buy_price = stock.get("buy_price")
+        buy_price_2 = stock.get("buy_price_2")
         sell_price = stock.get("sell_price")
         sell_price_2 = stock.get("sell_price_2")
 
@@ -370,6 +386,10 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
         if buy_price is not None and float(buy_price) > 0 and price <= float(buy_price):
             if can_notify(stock, "buy", now):
                 alerts.append(("buy", float(buy_price)))
+
+        if buy_price_2 is not None and float(buy_price_2) > 0 and price <= float(buy_price_2):
+            if can_notify(stock, "buy_2", now):
+                alerts.append(("buy_2", float(buy_price_2)))
 
         if sell_price is not None and float(sell_price) > 0 and price >= float(sell_price):
             if can_notify(stock, "sell", now):
@@ -380,7 +400,9 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
                 alerts.append(("sell_2", float(sell_price_2)))
 
         for alert_type, target in alerts:
-            verb = "買入" if alert_type == "buy" else ("第 2 批賣出" if alert_type == "sell_2" else "第 1 批賣出")
+            verb = "第 2 批買入" if alert_type == "buy_2" else (
+                "第 1 批買入" if alert_type == "buy" else ("第 2 批賣出" if alert_type == "sell_2" else "第 1 批賣出")
+            )
             text = f"📈 {symbol} 已觸發{verb}價提醒\n目前價格：{price:,.2f}\n目標價格：{target:,.2f}"
 
             if channel_access_token and user_ids:
@@ -411,8 +433,8 @@ st.markdown(
     /* 以直接輸入為主，收起 number_input 預設的加減控制鈕 */
     div[data-testid="stNumberInput"] button { display: none; }
     div[data-testid="stNumberInput"] input { text-align: right; }
-    .price-warning { color: #b77900; font-weight: 700; background: #fff3bf; padding: .15rem .4rem; border-radius: .3rem; }
-    .price-hit { color: #9b1c1c; font-weight: 800; background: #ffe3e3; padding: .15rem .4rem; border-radius: .3rem; }
+    .price-buy { color: #5c4400; font-weight: 800; background: #ffd43b; padding: .15rem .4rem; border-radius: .3rem; }
+    .price-sell { color: #ffffff; font-weight: 800; background: #e03131; padding: .15rem .4rem; border-radius: .3rem; }
     </style>""",
     unsafe_allow_html=True,
 )
@@ -427,7 +449,8 @@ with st.sidebar:
     st.caption("支援 4~6 位代碼（如 2330、00878）、中文名稱（如 台積電）或美股（如 NVDA）")
     with st.form("add_stock_form", clear_on_submit=True):
         stock_input = st.text_input("股票代碼／名稱", placeholder="例如：2330、00878、台積電、NVDA")
-        buy_price = st.number_input("目標買入價（0 代表不設定）", min_value=0.0, value=0.0, step=0.01)
+        buy_price = st.number_input("第 1 批買入價（0 代表不設定）", min_value=0.0, value=0.0, step=0.01)
+        buy_price_2 = st.number_input("第 2 批買入價（0 代表不設定）", min_value=0.0, value=0.0, step=0.01)
         sell_price = st.number_input("第 1 批賣出價（0 代表不設定）", min_value=0.0, value=0.0, step=0.01)
         sell_price_2 = st.number_input("第 2 批賣出價（0 代表不設定）", min_value=0.0, value=0.0, step=0.01)
         reference_price = st.number_input("參考價（不發送通知）", min_value=0.0, value=0.0, step=0.01)
@@ -436,7 +459,7 @@ with st.sidebar:
     if add_clicked:
         if not stock_input.strip():
             st.error("請輸入股票代碼。")
-        elif buy_price == 0 and sell_price == 0 and sell_price_2 == 0 and reference_price == 0:
+        elif buy_price == 0 and buy_price_2 == 0 and sell_price == 0 and sell_price_2 == 0 and reference_price == 0:
             st.error("請至少設定一個價格。")
         else:
             try:
@@ -448,6 +471,7 @@ with st.sidebar:
                         "symbol": symbol,
                         "name": get_stock_name(symbol),
                         "buy_price": round(buy_price, 4) if buy_price > 0 else None,
+                        "buy_price_2": round(buy_price_2, 4) if buy_price_2 > 0 else None,
                         "sell_price": round(sell_price, 4) if sell_price > 0 else None,
                         "sell_price_2": round(sell_price_2, 4) if sell_price_2 > 0 else None,
                         "reference_price": round(reference_price, 4) if reference_price > 0 else None,
@@ -584,27 +608,37 @@ else:
         with st.spinner("正在更新價格與檢查提醒…"):
             monitor_messages = run_monitor(stocks, config)
         
-        with st.expander("🔍 即時檢查日誌", expanded=True):
-            for msg in monitor_messages:
-                st.write(msg)
+        log_column, sort_column = st.columns([2.2, 1.3])
+        with log_column:
+            with st.expander("🔍 即時檢查日誌", expanded=False):
+                for msg in monitor_messages:
+                    st.write(msg)
+        with sort_column:
+            sort_mode = st.radio(
+                "排序",
+                ["手動排序", "依代碼排序"],
+                horizontal=True,
+                label_visibility="collapsed",
+            )
     else:
         st.caption("監控目前已停止；可按「💾 儲存/重新整理」手動刷新報價。")
+        sort_mode = st.radio("排序", ["手動排序", "依代碼排序"], horizontal=True, label_visibility="collapsed")
 
-    sort_mode = st.selectbox("排序", ["手動排序", "依代碼排序"], label_visibility="collapsed")
     watchlist_changed = False
     delete_indices: list[int] = []
     move_requests: list[tuple[int, int]] = []
 
-    header = st.columns([1.15, 1.25, 1.2, 1.2, 1.2, 1.15, 1.15, 1.25, 1.65])
+    header = st.columns([1.05, 1.15, 1.1, 1.1, 1.1, 1.1, 1.0, 1.1, 1.2, 1.55])
     header[0].markdown("**股票代碼**")
     header[1].markdown("**股票名稱**")
-    header[2].markdown("<span style='color:#00c853; font-weight:bold;'>目標買入價</span>", unsafe_allow_html=True)
-    header[3].markdown("<span style='color:#ff5252; font-weight:bold;'>第 1 批賣出</span>", unsafe_allow_html=True)
-    header[4].markdown("<span style='color:#ff5252; font-weight:bold;'>第 2 批賣出</span>", unsafe_allow_html=True)
-    header[5].markdown("**參考價**")
-    header[6].markdown("**最新價格**")
-    header[7].markdown("**最後檢查**")
-    header[8].markdown("**操作**")
+    header[2].markdown("<span style='color:#00c853; font-weight:bold;'>第 1 批買入</span>", unsafe_allow_html=True)
+    header[3].markdown("<span style='color:#00c853; font-weight:bold;'>第 2 批買入</span>", unsafe_allow_html=True)
+    header[4].markdown("<span style='color:#ff5252; font-weight:bold;'>第 1 批賣出</span>", unsafe_allow_html=True)
+    header[5].markdown("<span style='color:#ff5252; font-weight:bold;'>第 2 批賣出</span>", unsafe_allow_html=True)
+    header[6].markdown("**參考價**")
+    header[7].markdown("**最新價格**")
+    header[8].markdown("**最後檢查**")
+    header[9].markdown("**操作**")
 
     active_items = [(index, stock) for index, stock in enumerate(stocks) if stock.get("status", "active") == "active"]
     if sort_mode == "依代碼排序":
@@ -613,7 +647,7 @@ else:
     def render_stock_row(index: int, stock: dict[str, Any], archived: bool = False) -> bool:
         """顯示一列股票設定；暫停項目維持資料但不參與報價與通知。"""
         row_changed = False
-        columns = st.columns([1.15, 1.25, 1.2, 1.2, 1.2, 1.15, 1.15, 1.25, 1.65])
+        columns = st.columns([1.05, 1.15, 1.1, 1.1, 1.1, 1.1, 1.0, 1.1, 1.2, 1.55])
         symbol = str(stock.get("symbol", "-"))
         columns[0].write(symbol)
 
@@ -624,19 +658,28 @@ else:
         columns[1].write(name)
 
         current_buy = float(stock.get("buy_price") or 0.0)
+        current_buy_2 = float(stock.get("buy_price_2") or 0.0)
         current_sell = float(stock.get("sell_price") or 0.0)
         current_sell_2 = float(stock.get("sell_price_2") or 0.0)
         current_reference = float(stock.get("reference_price") or 0.0)
 
         new_buy = columns[2].number_input(
-            "買入價",
+            "第 1 批買入價",
             min_value=0.0,
             value=current_buy,
             step=0.01,
             label_visibility="collapsed",
             key=f"buy_price_{symbol}",
         )
-        new_sell = columns[3].number_input(
+        new_buy_2 = columns[3].number_input(
+            "第 2 批買入價",
+            min_value=0.0,
+            value=current_buy_2,
+            step=0.01,
+            label_visibility="collapsed",
+            key=f"buy_price_2_{symbol}",
+        )
+        new_sell = columns[4].number_input(
             "第 1 批賣出價",
             min_value=0.0,
             value=current_sell,
@@ -644,28 +687,29 @@ else:
             label_visibility="collapsed",
             key=f"sell_price_{symbol}",
         )
-        new_sell_2 = columns[4].number_input("第 2 批賣出價", min_value=0.0, value=current_sell_2, step=0.01,
+        new_sell_2 = columns[5].number_input("第 2 批賣出價", min_value=0.0, value=current_sell_2, step=0.01,
                                               label_visibility="collapsed", key=f"sell_price_2_{symbol}")
-        new_reference = columns[5].number_input("參考價", min_value=0.0, value=current_reference, step=0.01,
+        new_reference = columns[6].number_input("參考價", min_value=0.0, value=current_reference, step=0.01,
                                                   label_visibility="collapsed", key=f"reference_price_{symbol}")
 
         price = stock.get("last_price")
         price_markup = "-"
         if price is not None:
             numeric_price = float(price)
-            hit = (current_buy > 0 and numeric_price <= current_buy) or any(
-                target > 0 and numeric_price >= target for target in (current_sell, current_sell_2)
-            )
-            nearby = (current_buy > 0 and numeric_price <= current_buy * 1.01) or any(
-                target > 0 and numeric_price >= target * 0.99 for target in (current_sell, current_sell_2)
-            )
-            css_class = "price-hit" if hit else ("price-warning" if nearby else "")
+            buy_nearby = any(target > 0 and numeric_price <= target * 1.01 for target in (current_buy, current_buy_2))
+            sell_nearby = any(target > 0 and numeric_price >= target * 0.99 for target in (current_sell, current_sell_2))
+            # 賣出訊號優先紅底、買入訊號為黃底；批次不影響視覺判讀。
+            css_class = "price-sell" if sell_nearby else ("price-buy" if buy_nearby else "")
             price_markup = f"<span class='{css_class}'>{numeric_price:,.2f}</span>" if css_class else f"{numeric_price:,.2f}"
-        columns[6].markdown(price_markup, unsafe_allow_html=True)
-        columns[7].write(stock.get("last_checked", "尚未檢查"))
+        columns[7].markdown(price_markup, unsafe_allow_html=True)
+        checked_at = str(stock.get("last_checked", "尚未檢查"))
+        # 相容舊資料的「月-日 時:分:秒」格式；畫面一律只顯示時:分。
+        time_match = re.search(r"(\d{1,2}:\d{2})(?::\d{2})?", checked_at)
+        columns[8].write(time_match.group(1) if time_match else checked_at)
 
         for field, alert_type, new_price in (
-            ("buy_price", "buy", new_buy), ("sell_price", "sell", new_sell),
+            ("buy_price", "buy", new_buy), ("buy_price_2", "buy_2", new_buy_2),
+            ("sell_price", "sell", new_sell),
             ("sell_price_2", "sell_2", new_sell_2), ("reference_price", None, new_reference),
         ):
             normalized_price = None if new_price <= 0 else round(float(new_price), 4)
@@ -675,7 +719,7 @@ else:
                     reset_notification_state(stock, alert_type)
                 row_changed = True
 
-        action_columns = columns[8].columns(4)
+        action_columns = columns[9].columns(4)
         is_paused = stock.get("status", "active") != "active"
         status_label = "🟢 恢復" if is_paused else "🟡 暫停"
 
