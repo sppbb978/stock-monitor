@@ -433,9 +433,13 @@ st.markdown(
     div[data-testid="stNumberInput"] button { display: none; }
     div[data-testid="stNumberInput"] input { text-align: right; }
     /* 清單專用的緊湊排版：縮小欄距、欄位內距與操作鈕高度。 */
-    div[data-testid="stHorizontalBlock"] { gap: .2rem; }
-    div[data-testid="stColumn"], div[data-testid="column"] { padding-left: .05rem !important; padding-right: .05rem !important; }
-    div[data-testid="stButton"] > button { min-height: 1.7rem; padding: .08rem .2rem; font-size: .8rem; }
+    div[data-testid="stHorizontalBlock"] { column-gap: .12rem !important; row-gap: 0 !important; }
+    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"],
+    div[data-testid="stHorizontalBlock"] > div[data-testid="column"],
+    div[data-testid="stColumn"], div[data-testid="column"] {
+        min-width: 0 !important; margin: 0 !important; padding-left: 0 !important; padding-right: 0 !important;
+    }
+    div[data-testid="stButton"] > button { min-width: 0 !important; min-height: 1.55rem; height: 1.55rem; padding: 0 .08rem; font-size: .75rem; line-height: 1; }
     div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input { min-height: 1.7rem; padding: .1rem .3rem; }
     .price-buy { color: #5c4400; font-weight: 800; background: #ffd43b; padding: .15rem .4rem; border-radius: .3rem; }
     .price-sell { color: #ffffff; font-weight: 800; background: #e03131; padding: .15rem .4rem; border-radius: .3rem; }
@@ -632,7 +636,8 @@ else:
     delete_indices: list[int] = []
     move_requests: list[tuple[int, int]] = []
 
-    header = st.columns([0.9, 1.0, 0.95, 0.95, 0.95, 0.95, 1.0, 0.85, 1.7, 1.35], gap="small")
+    column_widths = [0.72, 0.78, 0.94, 0.94, 0.94, 0.94, 0.78, 0.62, 1.48, 1.48]
+    header = st.columns(column_widths, gap="small")
     header[0].markdown("**股票代碼**")
     header[1].markdown("**股票名稱**")
     header[2].markdown("<span style='color:#00c853; font-weight:bold;'>第 1 批買入</span>", unsafe_allow_html=True)
@@ -651,7 +656,7 @@ else:
     def render_stock_row(index: int, stock: dict[str, Any], archived: bool = False) -> bool:
         """顯示一列股票設定；暫停項目維持資料但不參與報價與通知。"""
         row_changed = False
-        columns = st.columns([0.9, 1.0, 0.95, 0.95, 0.95, 0.95, 1.0, 0.85, 1.7, 1.35], gap="small")
+        columns = st.columns(column_widths, gap="small")
         symbol = str(stock.get("symbol", "-"))
         columns[0].write(symbol)
 
@@ -731,19 +736,21 @@ else:
             stock["notes"] = new_notes.strip()
             row_changed = True
 
-        action_columns = columns[9].columns(2, gap="small")
+        action_columns = columns[9].columns(4, gap="small")
         is_paused = stock.get("status", "active") != "active"
 
-        if action_columns[0].button("恢復" if is_paused else "暫停", key=f"status_{symbol}", use_container_width=True):
+        status_icon = "▶" if is_paused else "⏸"
+        status_help = "恢復監控" if is_paused else "暫停監控"
+        if action_columns[0].button(status_icon, key=f"status_{symbol}", help=status_help, use_container_width=True):
             stock["status"] = "active" if is_paused else "paused"
             row_changed = True
 
-        if action_columns[1].button("刪除", key=f"delete_{symbol}", use_container_width=True):
+        if action_columns[1].button("🗑", key=f"delete_{symbol}", help="刪除這檔股票", use_container_width=True):
             delete_indices.append(index)
             row_changed = True
-        if action_columns[0].button("↑", key=f"move_up_{symbol}", help="在手動排序中上移", use_container_width=True):
+        if action_columns[2].button("↑", key=f"move_up_{symbol}", help="在手動排序中上移", use_container_width=True):
             move_requests.append((index, -1))
-        if action_columns[1].button("↓", key=f"move_down_{symbol}", help="在手動排序中下移", use_container_width=True):
+        if action_columns[3].button("↓", key=f"move_down_{symbol}", help="在手動排序中下移", use_container_width=True):
             move_requests.append((index, 1))
         return row_changed
 
