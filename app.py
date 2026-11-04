@@ -442,8 +442,9 @@ st.markdown(
     /* 以直接輸入為主，收起 number_input 預設的加減控制鈕 */
     div[data-testid="stNumberInput"] button { display: none; }
     div[data-testid="stNumberInput"] input { text-align: right; }
-    /* 清單專用的緊湊排版：縮小欄距與操作鈕高度。 */
-    div[data-testid="stHorizontalBlock"] { gap: .3rem; }
+    /* 清單專用的緊湊排版：縮小欄距、欄位內距與操作鈕高度。 */
+    div[data-testid="stHorizontalBlock"] { gap: .2rem; }
+    div[data-testid="stColumn"], div[data-testid="column"] { padding-left: .05rem !important; padding-right: .05rem !important; }
     div[data-testid="stButton"] > button { min-height: 1.7rem; padding: .08rem .2rem; font-size: .8rem; }
     div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input { min-height: 1.7rem; padding: .1rem .3rem; }
     .price-buy { color: #5c4400; font-weight: 800; background: #ffd43b; padding: .15rem .4rem; border-radius: .3rem; }
@@ -529,10 +530,11 @@ with st.sidebar:
                 st.error(f"無法匯入備份：{error}")
 
         st.caption("填寫 Token 與 Repo 後，清單變動時會自動同步至 GitHub。")
+        saved_github_token, saved_github_repo, saved_github_branch = github_settings(config)
         with st.form("github_form"):
-            github_token = st.text_input("GitHub Token", value=config.get("github_token", ""), type="password")
-            github_repo = st.text_input("GitHub Repo", value=config.get("github_repo", ""), placeholder="owner/repository")
-            github_branch = st.text_input("GitHub Branch", value=config.get("github_branch", "main"))
+            github_token = st.text_input("GitHub Token", value=saved_github_token, type="password")
+            github_repo = st.text_input("GitHub Repo", value=saved_github_repo, placeholder="owner/repository")
+            github_branch = st.text_input("GitHub Branch", value=saved_github_branch)
             save_github_config = st.form_submit_button("儲存 GitHub 同步設定", use_container_width=True)
 
             # 💡 已修正：放進 form 裡面，按下按鈕時能準確抓到剛填寫的 Token 並存入 config.json
@@ -621,7 +623,7 @@ else:
         with st.spinner("正在更新價格與檢查提醒…"):
             monitor_messages = run_monitor(stocks, config)
         
-        log_column, sort_column = st.columns([2.2, 1.3])
+        log_column, sort_column = st.columns([2.2, 1.3], gap="small")
         with log_column:
             with st.expander("🔍 即時檢查日誌", expanded=False):
                 for msg in monitor_messages:
@@ -641,7 +643,7 @@ else:
     delete_indices: list[int] = []
     move_requests: list[tuple[int, int]] = []
 
-    header = st.columns([0.9, 1.0, 0.95, 0.95, 0.95, 0.95, 1.0, 0.85, 1.7, 1.35])
+    header = st.columns([0.9, 1.0, 0.95, 0.95, 0.95, 0.95, 1.0, 0.85, 1.7, 1.35], gap="small")
     header[0].markdown("**股票代碼**")
     header[1].markdown("**股票名稱**")
     header[2].markdown("<span style='color:#00c853; font-weight:bold;'>第 1 批買入</span>", unsafe_allow_html=True)
@@ -660,7 +662,7 @@ else:
     def render_stock_row(index: int, stock: dict[str, Any], archived: bool = False) -> bool:
         """顯示一列股票設定；暫停項目維持資料但不參與報價與通知。"""
         row_changed = False
-        columns = st.columns([0.9, 1.0, 0.95, 0.95, 0.95, 0.95, 1.0, 0.85, 1.7, 1.35])
+        columns = st.columns([0.9, 1.0, 0.95, 0.95, 0.95, 0.95, 1.0, 0.85, 1.7, 1.35], gap="small")
         symbol = str(stock.get("symbol", "-"))
         columns[0].write(symbol)
 
@@ -740,7 +742,7 @@ else:
             stock["notes"] = new_notes.strip()
             row_changed = True
 
-        action_columns = columns[9].columns(2)
+        action_columns = columns[9].columns(2, gap="small")
         is_paused = stock.get("status", "active") != "active"
 
         if action_columns[0].button("恢復" if is_paused else "暫停", key=f"status_{symbol}", use_container_width=True):
