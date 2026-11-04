@@ -51,13 +51,13 @@
       "status": "active",
       "buy_notified_flags": [
         true,
-        false
+        true
       ],
       "buy_notified": true,
       "sell_notified": false,
       "last_alerts": {
         "buy_0": 1792561373.3119702,
-        "buy_1": 1793763309.4592588
+        "buy_1": 1793765163.1049614
       }
     },
     {
