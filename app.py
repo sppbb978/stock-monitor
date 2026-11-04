@@ -590,7 +590,7 @@ else:
     else:
         st.caption("監控目前已停止；可按「💾 儲存/重新整理」手動刷新報價。")
 
-    sort_mode = st.selectbox("排序", ["手動排序", "依代碼排序"], horizontal=True, label_visibility="collapsed")
+    sort_mode = st.selectbox("排序", ["手動排序", "依代碼排序"], label_visibility="collapsed")
     watchlist_changed = False
     delete_indices: list[int] = []
     move_requests: list[tuple[int, int]] = []
