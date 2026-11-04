@@ -55,16 +55,20 @@ def save_json(path: Path, data: dict[str, Any]) -> None:
 
 def init_config() -> dict[str, Any]:
     """初始化全域 Config 並存在 Session State 中。"""
+    default_config = {
+        "line_channel_access_token": "",
+        "line_user_id": "",
+        "refresh_seconds": 60,
+        "github_token": "",
+        "github_repo": "",
+        "github_branch": "main",
+    }
+    # config.json 是唯一來源；每次 rerun 都合併最新的本機設定，避免 Session State 留住舊值。
+    saved_config = load_json(CONFIG_FILE, default_config)
     if "config" not in st.session_state:
-        default_config = {
-            "line_channel_access_token": "",
-            "line_user_id": "",
-            "refresh_seconds": 60,
-            "github_token": "",
-            "github_repo": "",
-            "github_branch": "main",
-        }
-        st.session_state.config = load_json(CONFIG_FILE, default_config)
+        st.session_state.config = saved_config
+    else:
+        st.session_state.config.update(saved_config)
     return st.session_state.config
 
 
@@ -77,26 +81,12 @@ def update_config(new_settings: dict[str, Any]) -> None:
 
 
 def github_settings(config: dict[str, Any]) -> tuple[str, str, str]:
-    """優先讀取 Streamlit secrets，其次讀取介面儲存的 GitHub 設定。"""
-    token, repo, branch = "", "", "main"
-    try:
-        if "github_token" in st.secrets and str(st.secrets["github_token"]).strip():
-            token = str(st.secrets["github_token"]).strip()
-        if "github_repo" in st.secrets and str(st.secrets["github_repo"]).strip():
-            repo = str(st.secrets["github_repo"]).strip()
-        if "github_branch" in st.secrets and str(st.secrets["github_branch"]).strip():
-            branch = str(st.secrets["github_branch"]).strip()
-    except Exception:
-        pass
-
-    if not token:
-        token = str(config.get("github_token", "")).strip()
-    if not repo:
-        repo = str(config.get("github_repo", "")).strip()
-    if not branch or branch == "main":
-        branch = str(config.get("github_branch", "main")).strip() or "main"
-
-    return token, repo, branch
+    """只從本機 config.json（Session State 快取）讀取 GitHub 設定。"""
+    return (
+        str(config.get("github_token", "")).strip(),
+        str(config.get("github_repo", "")).strip(),
+        str(config.get("github_branch", "main")).strip() or "main",
+    )
 
 
 def clean_stocks_for_github(stocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -530,11 +520,10 @@ with st.sidebar:
                 st.error(f"無法匯入備份：{error}")
 
         st.caption("填寫 Token 與 Repo 後，清單變動時會自動同步至 GitHub。")
-        saved_github_token, saved_github_repo, saved_github_branch = github_settings(config)
         with st.form("github_form"):
-            github_token = st.text_input("GitHub Token", value=saved_github_token, type="password")
-            github_repo = st.text_input("GitHub Repo", value=saved_github_repo, placeholder="owner/repository")
-            github_branch = st.text_input("GitHub Branch", value=saved_github_branch)
+            github_token = st.text_input("GitHub Token", value=config.get("github_token", ""), type="password")
+            github_repo = st.text_input("GitHub Repo", value=config.get("github_repo", ""), placeholder="owner/repository")
+            github_branch = st.text_input("GitHub Branch", value=config.get("github_branch", "main"))
             save_github_config = st.form_submit_button("儲存 GitHub 同步設定", use_container_width=True)
 
             # 💡 已修正：放進 form 裡面，按下按鈕時能準確抓到剛填寫的 Token 並存入 config.json
