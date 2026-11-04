@@ -468,18 +468,25 @@ st.markdown(
     div[data-testid="stNumberInput"] button { display: none; }
     div[data-testid="stNumberInput"] input { text-align: right; }
     /* 清單專用的緊湊排版：縮小欄距、欄位內距與操作鈕高度。 */
-    /* Streamlit 預設 gap 會與欄位未使用寬度疊加；直接歸零，由比例控制空間。 */
-    [data-testid="stHorizontalBlock"], [data-testid="stHorizontalBlock"] > div {
-        gap: 0 !important; column-gap: 0 !important; row-gap: 0 !important;
-    }
+    /* 徹底移除 Streamlit 欄位及其內部 block 的隱形留白。 */
+    [data-testid="stHorizontalBlock"] { gap: 2px !important; column-gap: 2px !important; row-gap: 0 !important; }
+    [data-testid="stHorizontalBlock"] > div { gap: 0 !important; column-gap: 0 !important; row-gap: 0 !important; }
     [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
     [data-testid="stHorizontalBlock"] > [data-testid="column"],
     [data-testid="stColumn"], [data-testid="column"] {
         min-width: 0 !important; margin: 0 !important; padding: 0 !important;
     }
+    [data-testid="stColumn"] div, [data-testid="column"] div,
+    .stVerticalBlock, div[data-testid="element-container"] {
+        margin: 0 !important; padding: 0 !important;
+    }
     div[data-testid="stButton"] { margin: 0 !important; padding: 0 !important; }
     div[data-testid="stButton"] > button { width: 100% !important; min-width: 0 !important; min-height: 1.55rem; height: 1.55rem; padding: 0; font-size: .75rem; line-height: 1; }
-    div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input { min-height: 1.7rem; padding: .1rem .3rem; }
+    div[data-testid="stNumberInput"], div[data-testid="stTextInput"],
+    div[data-testid="stNumberInput"] > div, div[data-testid="stTextInput"] > div {
+        margin: 0 !important; padding: 0 !important;
+    }
+    div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input { min-height: 1.7rem; margin: 0 !important; padding: .05rem .15rem !important; }
     .stock-actions { display: flex !important; flex-flow: row nowrap !important; align-items: center !important; justify-content: space-between !important; gap: .12rem !important; min-width: 0 !important; white-space: nowrap !important; }
     .stock-action { display: inline-flex !important; flex: 1 1 0 !important; min-width: 0 !important; height: 1.55rem !important; align-items: center !important; justify-content: center !important; padding: 0 !important; border: 1px solid rgba(151, 166, 195, .35) !important; border-radius: .35rem !important; color: inherit !important; text-decoration: none !important; font-size: .78rem !important; line-height: 1 !important; }
     .stock-action:hover { background: rgba(255, 255, 255, .10) !important; border-color: rgba(255, 255, 255, .65) !important; }
