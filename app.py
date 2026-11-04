@@ -433,13 +433,15 @@ st.markdown(
     div[data-testid="stNumberInput"] button { display: none; }
     div[data-testid="stNumberInput"] input { text-align: right; }
     /* 清單專用的緊湊排版：縮小欄距、欄位內距與操作鈕高度。 */
-    div[data-testid="stHorizontalBlock"] { column-gap: .12rem !important; row-gap: 0 !important; }
+    /* Streamlit 預設 gap 會與欄位未使用寬度疊加；直接歸零，由比例控制空間。 */
+    [data-testid="stHorizontalBlock"] { gap: 0 !important; column-gap: 0 !important; row-gap: 0 !important; }
     div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"],
     div[data-testid="stHorizontalBlock"] > div[data-testid="column"],
     div[data-testid="stColumn"], div[data-testid="column"] {
-        min-width: 0 !important; margin: 0 !important; padding-left: 0 !important; padding-right: 0 !important;
+        min-width: 0 !important; margin: 0 !important; padding: 0 !important;
     }
-    div[data-testid="stButton"] > button { min-width: 0 !important; min-height: 1.55rem; height: 1.55rem; padding: 0 .08rem; font-size: .75rem; line-height: 1; }
+    div[data-testid="stButton"] { margin: 0 !important; padding: 0 !important; }
+    div[data-testid="stButton"] > button { width: 100% !important; min-width: 0 !important; min-height: 1.55rem; height: 1.55rem; padding: 0; font-size: .75rem; line-height: 1; }
     div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input { min-height: 1.7rem; padding: .1rem .3rem; }
     .price-buy { color: #5c4400; font-weight: 800; background: #ffd43b; padding: .15rem .4rem; border-radius: .3rem; }
     .price-sell { color: #ffffff; font-weight: 800; background: #e03131; padding: .15rem .4rem; border-radius: .3rem; }
@@ -636,7 +638,8 @@ else:
     delete_indices: list[int] = []
     move_requests: list[tuple[int, int]] = []
 
-    column_widths = [0.72, 0.78, 0.94, 0.94, 0.94, 0.94, 0.78, 0.62, 1.48, 1.48]
+    # 代碼／名稱／時間只保留足夠的固定比例，把可用寬度集中給備註與四個操作圖示。
+    column_widths = [0.50, 0.55, 1.05, 1.05, 1.05, 1.05, 0.60, 0.55, 1.65, 1.95]
     header = st.columns(column_widths, gap="small")
     header[0].markdown("**股票代碼**")
     header[1].markdown("**股票名稱**")
