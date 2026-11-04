@@ -149,12 +149,12 @@
       "buy_price": 15.0,
       "sell_price": 20.1,
       "note": "找機會重看或等出清",
-      "status": "paused",
+      "status": "active",
       "buy_notified_flags": [
-        true,
+        false,
         false
       ],
-      "buy_notified": true,
+      "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {
         "buy_0": 1793681268.0974896
@@ -242,22 +242,20 @@
       "symbol": "6274.TWO",
       "name": "台燿",
       "buy_prices": [
-        1250.0,
-        null
+        977.0,
+        805.0
       ],
-      "buy_price": 1250.0,
-      "sell_price": null,
+      "buy_price": 977.0,
+      "sell_price": 1580.0,
       "note": "1580/到價出清",
       "status": "active",
       "buy_notified_flags": [
-        true,
+        false,
         false
       ],
-      "buy_notified": true,
+      "buy_notified": false,
       "sell_notified": false,
-      "last_alerts": {
-        "buy_0": 1793582424.2182822
-      }
+      "last_alerts": {}
     },
     {
       "symbol": "2327.TW",
@@ -408,12 +406,14 @@
       "note": "到價可以減碼/分批落袋",
       "status": "active",
       "buy_notified_flags": [
-        false,
+        true,
         false
       ],
-      "buy_notified": false,
+      "buy_notified": true,
       "sell_notified": false,
-      "last_alerts": {}
+      "last_alerts": {
+        "buy_0": 1793761383.062329
+      }
     },
     {
       "symbol": "2383.TW",
@@ -463,6 +463,25 @@
       "buy_price": 112.0,
       "sell_price": 130.0,
       "note": "原料大漲，成本轉嫁注意終端銷量",
+      "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
+    },
+    {
+      "symbol": "2368.TW",
+      "name": "金像電",
+      "buy_prices": [
+        852.0,
+        630.0
+      ],
+      "buy_price": 852.0,
+      "sell_price": 1022.0,
+      "note": "等待 / 分批佈局",
       "status": "active",
       "buy_notified_flags": [
         false,
