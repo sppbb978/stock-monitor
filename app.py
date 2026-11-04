@@ -9,6 +9,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 import requests
 import streamlit as st
@@ -201,6 +202,40 @@ def save_watchlist(stocks: list[dict[str, Any]], config: dict[str, Any] | None =
     """儲存清單到本地與 GitHub。"""
     save_json(WATCHLIST_FILE, {"stocks": stocks})
     return sync_watchlist_to_github(stocks, config) if config else None
+
+
+def process_table_action(stocks: list[dict[str, Any]], config: dict[str, Any]) -> None:
+    """處理 HTML Flexbox 操作列的網址參數，避免巢狀 Streamlit 欄位。"""
+    action = str(st.query_params.get("stock_action", ""))
+    symbol = str(st.query_params.get("stock_symbol", "")).upper()
+    if action not in {"toggle", "delete", "up", "down"} or not symbol:
+        return
+
+    index = next((i for i, stock in enumerate(stocks) if str(stock.get("symbol", "")).upper() == symbol), None)
+    if index is None:
+        st.query_params.clear()
+        return
+
+    changed = False
+    if action == "toggle":
+        stocks[index]["status"] = "paused" if stocks[index].get("status", "active") == "active" else "active"
+        changed = True
+    elif action == "delete":
+        stocks.pop(index)
+        changed = True
+    else:
+        destination = index - 1 if action == "up" else index + 1
+        if 0 <= destination < len(stocks):
+            stocks[index], stocks[destination] = stocks[destination], stocks[index]
+            changed = True
+
+    st.query_params.clear()
+    if changed:
+        sync_error = save_watchlist(stocks, config)
+        if sync_error:
+            st.error(sync_error)
+        else:
+            st.rerun()
 
 
 def taiwan_yfinance_symbol(stock_code: str) -> str:
@@ -434,15 +469,20 @@ st.markdown(
     div[data-testid="stNumberInput"] input { text-align: right; }
     /* 清單專用的緊湊排版：縮小欄距、欄位內距與操作鈕高度。 */
     /* Streamlit 預設 gap 會與欄位未使用寬度疊加；直接歸零，由比例控制空間。 */
-    [data-testid="stHorizontalBlock"] { gap: 0 !important; column-gap: 0 !important; row-gap: 0 !important; }
-    div[data-testid="stHorizontalBlock"] > div[data-testid="stColumn"],
-    div[data-testid="stHorizontalBlock"] > div[data-testid="column"],
-    div[data-testid="stColumn"], div[data-testid="column"] {
+    [data-testid="stHorizontalBlock"], [data-testid="stHorizontalBlock"] > div {
+        gap: 0 !important; column-gap: 0 !important; row-gap: 0 !important;
+    }
+    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
+    [data-testid="stHorizontalBlock"] > [data-testid="column"],
+    [data-testid="stColumn"], [data-testid="column"] {
         min-width: 0 !important; margin: 0 !important; padding: 0 !important;
     }
     div[data-testid="stButton"] { margin: 0 !important; padding: 0 !important; }
     div[data-testid="stButton"] > button { width: 100% !important; min-width: 0 !important; min-height: 1.55rem; height: 1.55rem; padding: 0; font-size: .75rem; line-height: 1; }
     div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input { min-height: 1.7rem; padding: .1rem .3rem; }
+    .stock-actions { display: flex !important; flex-flow: row nowrap !important; align-items: center !important; justify-content: space-between !important; gap: .12rem !important; min-width: 0 !important; white-space: nowrap !important; }
+    .stock-action { display: inline-flex !important; flex: 1 1 0 !important; min-width: 0 !important; height: 1.55rem !important; align-items: center !important; justify-content: center !important; padding: 0 !important; border: 1px solid rgba(151, 166, 195, .35) !important; border-radius: .35rem !important; color: inherit !important; text-decoration: none !important; font-size: .78rem !important; line-height: 1 !important; }
+    .stock-action:hover { background: rgba(255, 255, 255, .10) !important; border-color: rgba(255, 255, 255, .65) !important; }
     .price-buy { color: #5c4400; font-weight: 800; background: #ffd43b; padding: .15rem .4rem; border-radius: .3rem; }
     .price-sell { color: #ffffff; font-weight: 800; background: #e03131; padding: .15rem .4rem; border-radius: .3rem; }
     </style>""",
@@ -453,6 +493,7 @@ st.caption("到價 LINE 提醒與即時價格對照")
 
 config = init_config()
 stocks = load_watchlist(config)
+process_table_action(stocks, config)
 
 with st.sidebar:
     st.header("新增股票")
@@ -635,11 +676,9 @@ else:
         sort_mode = st.radio("排序", ["手動排序", "依代碼排序"], horizontal=True, label_visibility="collapsed")
 
     watchlist_changed = False
-    delete_indices: list[int] = []
-    move_requests: list[tuple[int, int]] = []
 
-    # 代碼／名稱／時間只保留足夠的固定比例，把可用寬度集中給備註與四個操作圖示。
-    column_widths = [0.50, 0.55, 1.05, 1.05, 1.05, 1.05, 0.60, 0.55, 1.65, 1.95]
+    # 代碼／名稱／時間只保留足夠比例，避免空白欄位吞掉操作區的寬度。
+    column_widths = [0.46, 0.50, 1.03, 1.03, 1.03, 1.03, 0.56, 0.50, 1.60, 2.05]
     header = st.columns(column_widths, gap="small")
     header[0].markdown("**股票代碼**")
     header[1].markdown("**股票名稱**")
@@ -739,22 +778,19 @@ else:
             stock["notes"] = new_notes.strip()
             row_changed = True
 
-        action_columns = columns[9].columns(4, gap="small")
         is_paused = stock.get("status", "active") != "active"
-
+        encoded_symbol = quote(symbol, safe="")
         status_icon = "▶" if is_paused else "⏸"
-        status_help = "恢復監控" if is_paused else "暫停監控"
-        if action_columns[0].button(status_icon, key=f"status_{symbol}", help=status_help, use_container_width=True):
-            stock["status"] = "active" if is_paused else "paused"
-            row_changed = True
-
-        if action_columns[1].button("🗑", key=f"delete_{symbol}", help="刪除這檔股票", use_container_width=True):
-            delete_indices.append(index)
-            row_changed = True
-        if action_columns[2].button("↑", key=f"move_up_{symbol}", help="在手動排序中上移", use_container_width=True):
-            move_requests.append((index, -1))
-        if action_columns[3].button("↓", key=f"move_down_{symbol}", help="在手動排序中下移", use_container_width=True):
-            move_requests.append((index, 1))
+        status_title = "恢復監控" if is_paused else "暫停監控"
+        columns[9].markdown(
+            f'''<div class="stock-actions">
+                <a class="stock-action" href="?stock_action=toggle&amp;stock_symbol={encoded_symbol}" title="{status_title}" aria-label="{status_title}">{status_icon}</a>
+                <a class="stock-action" href="?stock_action=delete&amp;stock_symbol={encoded_symbol}" title="刪除這檔股票" aria-label="刪除這檔股票">🗑</a>
+                <a class="stock-action" href="?stock_action=up&amp;stock_symbol={encoded_symbol}" title="在手動排序中上移" aria-label="在手動排序中上移">↑</a>
+                <a class="stock-action" href="?stock_action=down&amp;stock_symbol={encoded_symbol}" title="在手動排序中下移" aria-label="在手動排序中下移">↓</a>
+            </div>''',
+            unsafe_allow_html=True,
+        )
         return row_changed
 
     for index, stock in active_items:
@@ -765,16 +801,6 @@ else:
         with st.expander(f"📦 已出清／暫停庫存（{len(archived_items)}）", expanded=False):
             for index, stock in archived_items:
                 watchlist_changed = render_stock_row(index, stock, archived=True) or watchlist_changed
-
-    # 手動排序以清單原始順序為準；依代碼排序只改變目前檢視、不重寫使用者順序。
-    for index, direction in move_requests:
-        new_index = index + direction
-        if 0 <= new_index < len(stocks):
-            stocks[index], stocks[new_index] = stocks[new_index], stocks[index]
-            watchlist_changed = True
-
-    for index in sorted(set(delete_indices), reverse=True):
-        stocks.pop(index)
 
     if watchlist_changed:
         sync_error = save_watchlist(stocks, config)
