@@ -110,7 +110,7 @@ def clean_stocks_for_github(stocks: list[dict[str, Any]]) -> list[dict[str, Any]
             "buy_price_2": s.get("buy_price_2"),
             "sell_price": s.get("sell_price"),
             "sell_price_2": s.get("sell_price_2"),
-            "reference_price": s.get("reference_price"),
+            "notes": s.get("notes", ""),
             "status": s.get("status", "active"),
             "buy_notified": s.get("buy_notified", False),
             "sell_notified": s.get("sell_notified", False),
@@ -122,7 +122,7 @@ def clean_stocks_for_github(stocks: list[dict[str, Any]]) -> list[dict[str, Any]
 
 def clear_widget_state():
     """徹底清除表格所有 Widget 的 Session State，防止舊 Key 污染新清單。"""
-    prefixes = ("buy_price_", "sell_price_", "reference_price_", "status_", "delete_", "move_")
+    prefixes = ("buy_price_", "sell_price_", "notes_", "status_", "delete_", "move_")
     for key in list(st.session_state.keys()):
         if any(key.startswith(p) for p in prefixes):
             del st.session_state[key]
@@ -453,13 +453,13 @@ with st.sidebar:
         buy_price_2 = st.number_input("第 2 批買入價（0 代表不設定）", min_value=0.0, value=0.0, step=0.01)
         sell_price = st.number_input("第 1 批賣出價（0 代表不設定）", min_value=0.0, value=0.0, step=0.01)
         sell_price_2 = st.number_input("第 2 批賣出價（0 代表不設定）", min_value=0.0, value=0.0, step=0.01)
-        reference_price = st.number_input("參考價（不發送通知）", min_value=0.0, value=0.0, step=0.01)
+        notes = st.text_input("決策思維／進出場備註（選填）")
         add_clicked = st.form_submit_button("新增股票", use_container_width=True)
 
     if add_clicked:
         if not stock_input.strip():
             st.error("請輸入股票代碼。")
-        elif buy_price == 0 and buy_price_2 == 0 and sell_price == 0 and sell_price_2 == 0 and reference_price == 0:
+        elif buy_price == 0 and buy_price_2 == 0 and sell_price == 0 and sell_price_2 == 0:
             st.error("請至少設定一個價格。")
         else:
             try:
@@ -474,7 +474,7 @@ with st.sidebar:
                         "buy_price_2": round(buy_price_2, 4) if buy_price_2 > 0 else None,
                         "sell_price": round(sell_price, 4) if sell_price > 0 else None,
                         "sell_price_2": round(sell_price_2, 4) if sell_price_2 > 0 else None,
-                        "reference_price": round(reference_price, 4) if reference_price > 0 else None,
+                        "notes": notes.strip(),
                         "status": "active",
                         "buy_notified": False,
                         "sell_notified": False,
@@ -628,16 +628,16 @@ else:
     delete_indices: list[int] = []
     move_requests: list[tuple[int, int]] = []
 
-    header = st.columns([1.05, 1.15, 1.1, 1.1, 1.1, 1.1, 1.0, 1.1, 1.2, 1.55])
+    header = st.columns([0.9, 1.0, 0.95, 0.95, 0.95, 0.95, 1.0, 0.85, 1.7, 1.35])
     header[0].markdown("**股票代碼**")
     header[1].markdown("**股票名稱**")
     header[2].markdown("<span style='color:#00c853; font-weight:bold;'>第 1 批買入</span>", unsafe_allow_html=True)
     header[3].markdown("<span style='color:#00c853; font-weight:bold;'>第 2 批買入</span>", unsafe_allow_html=True)
     header[4].markdown("<span style='color:#ff5252; font-weight:bold;'>第 1 批賣出</span>", unsafe_allow_html=True)
     header[5].markdown("<span style='color:#ff5252; font-weight:bold;'>第 2 批賣出</span>", unsafe_allow_html=True)
-    header[6].markdown("**參考價**")
-    header[7].markdown("**最新價格**")
-    header[8].markdown("**最後檢查**")
+    header[6].markdown("**最新價格**")
+    header[7].markdown("**最後檢查**")
+    header[8].markdown("**決策思維／進出場備註**")
     header[9].markdown("**操作**")
 
     active_items = [(index, stock) for index, stock in enumerate(stocks) if stock.get("status", "active") == "active"]
@@ -647,7 +647,7 @@ else:
     def render_stock_row(index: int, stock: dict[str, Any], archived: bool = False) -> bool:
         """顯示一列股票設定；暫停項目維持資料但不參與報價與通知。"""
         row_changed = False
-        columns = st.columns([1.05, 1.15, 1.1, 1.1, 1.1, 1.1, 1.0, 1.1, 1.2, 1.55])
+        columns = st.columns([0.9, 1.0, 0.95, 0.95, 0.95, 0.95, 1.0, 0.85, 1.7, 1.35])
         symbol = str(stock.get("symbol", "-"))
         columns[0].write(symbol)
 
@@ -661,7 +661,7 @@ else:
         current_buy_2 = float(stock.get("buy_price_2") or 0.0)
         current_sell = float(stock.get("sell_price") or 0.0)
         current_sell_2 = float(stock.get("sell_price_2") or 0.0)
-        current_reference = float(stock.get("reference_price") or 0.0)
+        current_notes = str(stock.get("notes", ""))
 
         new_buy = columns[2].number_input(
             "第 1 批買入價",
@@ -689,9 +689,6 @@ else:
         )
         new_sell_2 = columns[5].number_input("第 2 批賣出價", min_value=0.0, value=current_sell_2, step=0.01,
                                               label_visibility="collapsed", key=f"sell_price_2_{symbol}")
-        new_reference = columns[6].number_input("參考價", min_value=0.0, value=current_reference, step=0.01,
-                                                  label_visibility="collapsed", key=f"reference_price_{symbol}")
-
         price = stock.get("last_price")
         price_markup = "-"
         if price is not None:
@@ -701,16 +698,23 @@ else:
             # 賣出訊號優先紅底、買入訊號為黃底；批次不影響視覺判讀。
             css_class = "price-sell" if sell_nearby else ("price-buy" if buy_nearby else "")
             price_markup = f"<span class='{css_class}'>{numeric_price:,.2f}</span>" if css_class else f"{numeric_price:,.2f}"
-        columns[7].markdown(price_markup, unsafe_allow_html=True)
+        columns[6].markdown(price_markup, unsafe_allow_html=True)
         checked_at = str(stock.get("last_checked", "尚未檢查"))
         # 相容舊資料的「月-日 時:分:秒」格式；畫面一律只顯示時:分。
         time_match = re.search(r"(\d{1,2}:\d{2})(?::\d{2})?", checked_at)
-        columns[8].write(time_match.group(1) if time_match else checked_at)
+        columns[7].write(time_match.group(1) if time_match else checked_at)
+        new_notes = columns[8].text_input(
+            "決策思維／進出場備註",
+            value=current_notes,
+            label_visibility="collapsed",
+            key=f"notes_{symbol}",
+            placeholder="例：突破後分批進場",
+        )
 
         for field, alert_type, new_price in (
             ("buy_price", "buy", new_buy), ("buy_price_2", "buy_2", new_buy_2),
             ("sell_price", "sell", new_sell),
-            ("sell_price_2", "sell_2", new_sell_2), ("reference_price", None, new_reference),
+            ("sell_price_2", "sell_2", new_sell_2),
         ):
             normalized_price = None if new_price <= 0 else round(float(new_price), 4)
             if stock.get(field) != normalized_price:
@@ -719,20 +723,23 @@ else:
                     reset_notification_state(stock, alert_type)
                 row_changed = True
 
-        action_columns = columns[9].columns(4)
-        is_paused = stock.get("status", "active") != "active"
-        status_label = "🟢 恢復" if is_paused else "🟡 暫停"
+        if stock.get("notes", "") != new_notes.strip():
+            stock["notes"] = new_notes.strip()
+            row_changed = True
 
-        if action_columns[0].button(status_label, key=f"status_{symbol}", use_container_width=True):
+        action_columns = columns[9].columns(2)
+        is_paused = stock.get("status", "active") != "active"
+
+        if action_columns[0].button("恢復" if is_paused else "暫停", key=f"status_{symbol}", use_container_width=True):
             stock["status"] = "active" if is_paused else "paused"
             row_changed = True
 
-        if action_columns[1].button("🔴 刪除", key=f"delete_{symbol}", use_container_width=True):
+        if action_columns[1].button("刪除", key=f"delete_{symbol}", use_container_width=True):
             delete_indices.append(index)
             row_changed = True
-        if action_columns[2].button("↑", key=f"move_up_{symbol}", help="在手動排序中上移", use_container_width=True):
+        if action_columns[0].button("↑", key=f"move_up_{symbol}", help="在手動排序中上移", use_container_width=True):
             move_requests.append((index, -1))
-        if action_columns[3].button("↓", key=f"move_down_{symbol}", help="在手動排序中下移", use_container_width=True):
+        if action_columns[1].button("↓", key=f"move_down_{symbol}", help="在手動排序中下移", use_container_width=True):
             move_requests.append((index, 1))
         return row_changed
 
