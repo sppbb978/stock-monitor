@@ -59,12 +59,16 @@ def init_config() -> dict[str, Any]:
         "line_channel_access_token": "",
         "line_user_id": "",
         "refresh_seconds": 60,
-        "github_token": "",
-        "github_repo": "",
-        "github_branch": "main",
     }
-    # config.json 是本機後備來源；GitHub 同步憑證會在 github_settings() 優先由 Secrets 取得。
     saved_config = load_json(CONFIG_FILE, default_config)
+    # 遷移舊設定：GitHub 憑證與 Repo 僅允許存在 Streamlit Secrets，不再寫入 config.json。
+    removed_legacy_github_settings = False
+    for key in ("github_token", "github_repo", "github_branch"):
+        if key in saved_config:
+            saved_config.pop(key)
+            removed_legacy_github_settings = True
+    if removed_legacy_github_settings:
+        save_json(CONFIG_FILE, saved_config)
     if "config" not in st.session_state:
         st.session_state.config = saved_config
     else:
@@ -76,12 +80,15 @@ def update_config(new_settings: dict[str, Any]) -> None:
     """同步更新 Session State 與硬碟中的 config.json。"""
     if "config" not in st.session_state:
         st.session_state.config = {}
+    for key in ("github_token", "github_repo", "github_branch"):
+        st.session_state.config.pop(key, None)
+        new_settings.pop(key, None)
     st.session_state.config.update(new_settings)
     save_json(CONFIG_FILE, st.session_state.config)
 
 
 def github_secrets() -> tuple[str, str, str]:
-    """讀取部署環境的 GitHub Secrets；未設定時回傳空值以相容本機設定。"""
+    """唯一從部署環境的 Streamlit Secrets 讀取 GitHub 設定。"""
     try:
         return (
             str(st.secrets.get("github_token", "")).strip(),
@@ -89,18 +96,14 @@ def github_secrets() -> tuple[str, str, str]:
             str(st.secrets.get("github_branch", "")).strip(),
         )
     except Exception:
-        # 本機未建立 secrets.toml 或 Secrets 格式有誤時，保留 config.json 後備機制。
+        # 未建立 secrets.toml 或 Secrets 格式有誤時，停用 GitHub 同步。
         return "", "", ""
 
 
-def github_settings(config: dict[str, Any]) -> tuple[str, str, str]:
-    """優先從 Streamlit Secrets 讀取 GitHub 設定，再回退至本機 config.json。"""
+def github_settings() -> tuple[str, str, str]:
+    """取得 Secrets 中的 GitHub 設定；未設定時回傳空憑證。"""
     secret_token, secret_repo, secret_branch = github_secrets()
-    return (
-        secret_token or str(config.get("github_token", "")).strip(),
-        secret_repo or str(config.get("github_repo", "")).strip(),
-        secret_branch or str(config.get("github_branch", "main")).strip() or "main",
-    )
+    return secret_token, secret_repo, secret_branch or "main"
 
 
 def clean_stocks_for_github(stocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -132,9 +135,9 @@ def clear_widget_state():
             del st.session_state[key]
 
 
-def get_remote_watchlist(config: dict[str, Any]) -> list[dict[str, Any]] | None:
+def get_remote_watchlist() -> list[dict[str, Any]] | None:
     """從 GitHub 下載已同步的監控清單。"""
-    token, repo, branch = github_settings(config)
+    token, repo, branch = github_settings()
     if not token or not repo:
         return None
     try:
@@ -155,9 +158,9 @@ def get_remote_watchlist(config: dict[str, Any]) -> list[dict[str, Any]] | None:
         return None
 
 
-def sync_watchlist_to_github(stocks: list[dict[str, Any]], config: dict[str, Any]) -> str | None:
+def sync_watchlist_to_github(stocks: list[dict[str, Any]]) -> str | None:
     """將清單過濾後上傳至 GitHub。"""
-    token, repo, branch = github_settings(config)
+    token, repo, branch = github_settings()
     if not token or not repo:
         return None
     try:
@@ -184,7 +187,7 @@ def sync_watchlist_to_github(stocks: list[dict[str, Any]], config: dict[str, Any
         return f"GitHub 同步失敗：{error}"
 
 
-def load_watchlist(config: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+def load_watchlist() -> list[dict[str, Any]]:
     """讀取本地 Watchlist，首次進入頁面時嘗試由 GitHub 還原。"""
     data = load_json(WATCHLIST_FILE, {"stocks": []})
     stocks = data.get("stocks", []) if isinstance(data.get("stocks"), list) else []
@@ -198,9 +201,9 @@ def load_watchlist(config: dict[str, Any] | None = None) -> list[dict[str, Any]]
             stock["notes"] = str(stock.get("note") or "")
 
     # 本機已有清單時絕不以遠端資料覆寫，避免手動備份或剛還原的資料被蓋掉。
-    if config and not stocks and not st.session_state.get("remote_watchlist_loaded", False):
+    if not stocks and not st.session_state.get("remote_watchlist_loaded", False):
         try:
-            remote_stocks = get_remote_watchlist(config)
+            remote_stocks = get_remote_watchlist()
             if remote_stocks is not None:
                 stocks = remote_stocks
                 save_json(WATCHLIST_FILE, {"stocks": stocks})
@@ -211,13 +214,13 @@ def load_watchlist(config: dict[str, Any] | None = None) -> list[dict[str, Any]]
     return stocks
 
 
-def save_watchlist(stocks: list[dict[str, Any]], config: dict[str, Any] | None = None) -> str | None:
+def save_watchlist(stocks: list[dict[str, Any]]) -> str | None:
     """儲存清單到本地與 GitHub。"""
     save_json(WATCHLIST_FILE, {"stocks": stocks})
-    return sync_watchlist_to_github(stocks, config) if config else None
+    return sync_watchlist_to_github(stocks)
 
 
-def apply_table_action(stocks: list[dict[str, Any]], config: dict[str, Any], symbol: str, action: str) -> None:
+def apply_table_action(stocks: list[dict[str, Any]], symbol: str, action: str) -> None:
     """處理原生操作按鈕，儲存成功後立即重繪清單。"""
     if action not in {"toggle", "delete", "up", "down"}:
         return
@@ -239,7 +242,7 @@ def apply_table_action(stocks: list[dict[str, Any]], config: dict[str, Any], sym
             changed = True
 
     if changed:
-        sync_error = save_watchlist(stocks, config)
+        sync_error = save_watchlist(stocks)
         if sync_error:
             st.error(sync_error)
         else:
@@ -474,7 +477,7 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
                 messages.append(f"🔔 {symbol} 已觸發{verb}價（未設定 LINE 憑證）")
 
     if notification_state_changed:
-        save_watchlist(stocks, config)
+        save_watchlist(stocks)
 
     return messages
 
@@ -519,7 +522,7 @@ st.title("📈 股票關鍵價位監控")
 st.caption("到價 LINE 提醒與即時價格對照")
 
 config = init_config()
-stocks = load_watchlist(config)
+stocks = load_watchlist()
 
 with st.sidebar:
     st.header("新增股票")
@@ -557,7 +560,7 @@ with st.sidebar:
                         "sell_notified": False,
                         "last_alerts": {},
                     })
-                    sync_error = save_watchlist(stocks, config)
+                    sync_error = save_watchlist(stocks)
                     if sync_error:
                         st.error(sync_error)
                     else:
@@ -582,7 +585,7 @@ with st.sidebar:
                 imported_stocks = backup_data.get("stocks")
                 if not isinstance(imported_stocks, list):
                     raise ValueError("備份檔案缺少 stocks 清單。")
-                sync_error = save_watchlist(imported_stocks, config)
+                sync_error = save_watchlist(imported_stocks)
                 clear_widget_state()
                 if sync_error:
                     st.error(sync_error)
@@ -595,29 +598,9 @@ with st.sidebar:
         secret_token, secret_repo, secret_branch = github_secrets()
         if secret_token and secret_repo:
             st.success("已透過系統 Secrets 自動連線 GitHub。")
-            st.caption(f"同步目標：{secret_repo}（{secret_branch or 'main'}）。本機無須填寫 Token。")
+            st.caption(f"同步目標：{secret_repo}（{secret_branch or 'main'}）。")
         else:
-            st.caption("可選填本機 GitHub 設定；部署時建議改用 Streamlit Secrets。")
-            with st.form("github_form"):
-                github_token = st.text_input("GitHub Token（選填）", value=config.get("github_token", ""), type="password")
-                github_repo = st.text_input("GitHub Repo（選填）", value=config.get("github_repo", ""), placeholder="owner/repository")
-                github_branch = st.text_input("GitHub Branch（選填）", value=config.get("github_branch", "main"))
-                save_github_config = st.form_submit_button("儲存本機 GitHub 設定", use_container_width=True)
-
-                if save_github_config:
-                    update_config({
-                        "github_token": github_token.strip(),
-                        "github_repo": github_repo.strip(),
-                        "github_branch": github_branch.strip() or "main",
-                    })
-                    st.session_state.remote_watchlist_loaded = False
-                    sync_error = save_watchlist(stocks, st.session_state.config)
-                    clear_widget_state()
-                    if sync_error:
-                        st.error(sync_error)
-                    else:
-                        st.success("GitHub 同步設定已儲存。")
-                        st.rerun()
+            st.caption("尚未設定 GitHub Secrets；略過 GitHub 同步。本機清單仍會正常儲存。")
 
     with st.popover("⚙️ 系統設定", use_container_width=True):
         with st.form("system_settings_form"):
@@ -812,13 +795,13 @@ else:
         status_label = "啟用通知" if is_paused else "暫停通知"
         status_help = "恢復 LINE 到價通知" if is_paused else "僅暫停 LINE 到價通知；股價與到價提示仍會更新"
         if action_columns[0].button(status_label, key=f"status_{symbol}", help=status_help, use_container_width=True):
-            apply_table_action(stocks, config, symbol.upper(), "toggle")
+            apply_table_action(stocks, symbol.upper(), "toggle")
         if action_columns[1].button("刪除", key=f"delete_{symbol}", use_container_width=True):
-            apply_table_action(stocks, config, symbol.upper(), "delete")
+            apply_table_action(stocks, symbol.upper(), "delete")
         if action_columns[2].button("↑", key=f"move_up_{symbol}", help="在手動排序中上移", use_container_width=True):
-            apply_table_action(stocks, config, symbol.upper(), "up")
+            apply_table_action(stocks, symbol.upper(), "up")
         if action_columns[3].button("↓", key=f"move_down_{symbol}", help="在手動排序中下移", use_container_width=True):
-            apply_table_action(stocks, config, symbol.upper(), "down")
+            apply_table_action(stocks, symbol.upper(), "down")
         return row_changed
 
     for index, stock in active_items:
@@ -831,7 +814,7 @@ else:
                 watchlist_changed = render_stock_row(index, stock) or watchlist_changed
 
     if watchlist_changed:
-        sync_error = save_watchlist(stocks, config)
+        sync_error = save_watchlist(stocks)
         if sync_error:
             st.error(sync_error)
         else:
