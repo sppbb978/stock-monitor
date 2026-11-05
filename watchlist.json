@@ -342,6 +342,19 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
+    },
+    {
+      "symbol": "2884.TW",
+      "name": "玉山金",
+      "buy_price": 1000.0,
+      "buy_price_2": null,
+      "sell_price": null,
+      "sell_price_2": null,
+      "notes": "",
+      "status": "active",
+      "buy_notified": false,
+      "sell_notified": false,
+      "last_alerts": {}
     }
   ]
 }
