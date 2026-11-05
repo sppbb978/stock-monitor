@@ -668,9 +668,8 @@ else:
     if monitoring or save_refresh:
         if monitoring:
             st_autorefresh(interval=refresh_seconds * 1_000, key="stock_monitor_refresh")
-        with st.spinner("正在更新價格與檢查提醒…"):
-            monitor_messages = run_monitor(stocks, config)
-        
+        monitor_messages = run_monitor(stocks, config)
+
         log_column, sort_column = st.columns([2.2, 1.3], gap="small")
         with log_column:
             with st.expander("🔍 即時檢查日誌", expanded=False):
