@@ -1,6 +1,67 @@
 {
   "stocks": [
     {
+      "symbol": "2308.TW",
+      "name": "台達電",
+      "buy_price": 1585,
+      "buy_price_2": 826,
+      "sell_price": 2000,
+      "sell_price_2": null,
+      "notes": "入場價格不美/獲利有限/等恐慌",
+      "status": "paused",
+      "buy_notified": true,
+      "sell_notified": false,
+      "last_alerts": {
+        "buy": 1793849024.180486
+      }
+    },
+    {
+      "symbol": "4129.TWO",
+      "name": "聯合",
+      "buy_price": 79.8,
+      "buy_price_2": 65.7,
+      "sell_price": 84.0,
+      "sell_price_2": 117.0,
+      "notes": "試探買入 / 分批建倉",
+      "status": "paused",
+      "buy_notified": true,
+      "sell_notified": false,
+      "last_alerts": {
+        "buy": 1793851201.078338
+      }
+    },
+    {
+      "symbol": "2327.TW",
+      "name": "國巨*",
+      "buy_price": 528,
+      "buy_price_2": 424,
+      "sell_price": 1130,
+      "sell_price_2": null,
+      "notes": "",
+      "status": "paused",
+      "buy_notified": true,
+      "sell_notified": false,
+      "last_alerts": {
+        "buy": 1793850844.307493,
+        "buy_2": 1793850844.307493
+      }
+    },
+    {
+      "symbol": "3211.TWO",
+      "name": "順達",
+      "buy_price": 340,
+      "buy_price_2": 258,
+      "sell_price": 625,
+      "sell_price_2": null,
+      "notes": "AI伺服器BBU供應商/過度定價/等恐慌(已加碼1次)",
+      "status": "paused",
+      "buy_notified": true,
+      "sell_notified": false,
+      "last_alerts": {
+        "buy": 1793849024.180486
+      }
+    },
+    {
       "symbol": "3037.TW",
       "name": "欣興",
       "buy_price": 750,
@@ -25,21 +86,6 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
-    },
-    {
-      "symbol": "3211.TWO",
-      "name": "順達",
-      "buy_price": 340,
-      "buy_price_2": 258,
-      "sell_price": 625,
-      "sell_price_2": null,
-      "notes": "AI伺服器BBU供應商/過度定價/等恐慌(已加碼1次)",
-      "status": "paused",
-      "buy_notified": true,
-      "sell_notified": false,
-      "last_alerts": {
-        "buy": 1793849024.180486
-      }
     },
     {
       "symbol": "8916.TWO",
@@ -81,21 +127,6 @@
       "last_alerts": {}
     },
     {
-      "symbol": "2308.TW",
-      "name": "台達電",
-      "buy_price": 1585,
-      "buy_price_2": 826,
-      "sell_price": 2000,
-      "sell_price_2": null,
-      "notes": "入場價格不美/獲利有限/等恐慌",
-      "status": "paused",
-      "buy_notified": true,
-      "sell_notified": false,
-      "last_alerts": {
-        "buy": 1793849024.180486
-      }
-    },
-    {
       "symbol": "6804.TWO",
       "name": "明係",
       "buy_price": 15,
@@ -107,21 +138,6 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
-    },
-    {
-      "symbol": "4129.TWO",
-      "name": "聯合",
-      "buy_price": 79.8,
-      "buy_price_2": 65.7,
-      "sell_price": 84.0,
-      "sell_price_2": 117.0,
-      "notes": "試探買入 / 分批建倉",
-      "status": "paused",
-      "buy_notified": true,
-      "sell_notified": false,
-      "last_alerts": {
-        "buy": 1793851201.078338
-      }
     },
     {
       "symbol": "6570.TWO",
@@ -174,22 +190,6 @@
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
-    },
-    {
-      "symbol": "2327.TW",
-      "name": "國巨*",
-      "buy_price": 528,
-      "buy_price_2": 424,
-      "sell_price": 1130,
-      "sell_price_2": null,
-      "notes": "",
-      "status": "paused",
-      "buy_notified": true,
-      "sell_notified": false,
-      "last_alerts": {
-        "buy": 1793850844.307493,
-        "buy_2": 1793850844.307493
-      }
     },
     {
       "symbol": "4576.TW",
