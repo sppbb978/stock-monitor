@@ -63,7 +63,7 @@ def init_config() -> dict[str, Any]:
         "github_repo": "",
         "github_branch": "main",
     }
-    # config.json 是唯一來源；每次 rerun 都合併最新的本機設定，避免 Session State 留住舊值。
+    # config.json 是本機後備來源；GitHub 同步憑證會在 github_settings() 優先由 Secrets 取得。
     saved_config = load_json(CONFIG_FILE, default_config)
     if "config" not in st.session_state:
         st.session_state.config = saved_config
@@ -80,12 +80,26 @@ def update_config(new_settings: dict[str, Any]) -> None:
     save_json(CONFIG_FILE, st.session_state.config)
 
 
+def github_secrets() -> tuple[str, str, str]:
+    """讀取部署環境的 GitHub Secrets；未設定時回傳空值以相容本機設定。"""
+    try:
+        return (
+            str(st.secrets.get("github_token", "")).strip(),
+            str(st.secrets.get("github_repo", "")).strip(),
+            str(st.secrets.get("github_branch", "")).strip(),
+        )
+    except Exception:
+        # 本機未建立 secrets.toml 或 Secrets 格式有誤時，保留 config.json 後備機制。
+        return "", "", ""
+
+
 def github_settings(config: dict[str, Any]) -> tuple[str, str, str]:
-    """只從本機 config.json（Session State 快取）讀取 GitHub 設定。"""
+    """優先從 Streamlit Secrets 讀取 GitHub 設定，再回退至本機 config.json。"""
+    secret_token, secret_repo, secret_branch = github_secrets()
     return (
-        str(config.get("github_token", "")).strip(),
-        str(config.get("github_repo", "")).strip(),
-        str(config.get("github_branch", "main")).strip() or "main",
+        secret_token or str(config.get("github_token", "")).strip(),
+        secret_repo or str(config.get("github_repo", "")).strip(),
+        secret_branch or str(config.get("github_branch", "main")).strip() or "main",
     )
 
 
@@ -578,28 +592,32 @@ with st.sidebar:
             except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
                 st.error(f"無法匯入備份：{error}")
 
-        st.caption("填寫 Token 與 Repo 後，清單變動時會自動同步至 GitHub。")
-        with st.form("github_form"):
-            github_token = st.text_input("GitHub Token", value=config.get("github_token", ""), type="password")
-            github_repo = st.text_input("GitHub Repo", value=config.get("github_repo", ""), placeholder="owner/repository")
-            github_branch = st.text_input("GitHub Branch", value=config.get("github_branch", "main"))
-            save_github_config = st.form_submit_button("儲存 GitHub 同步設定", use_container_width=True)
+        secret_token, secret_repo, secret_branch = github_secrets()
+        if secret_token and secret_repo:
+            st.success("已透過系統 Secrets 自動連線 GitHub。")
+            st.caption(f"同步目標：{secret_repo}（{secret_branch or 'main'}）。本機無須填寫 Token。")
+        else:
+            st.caption("可選填本機 GitHub 設定；部署時建議改用 Streamlit Secrets。")
+            with st.form("github_form"):
+                github_token = st.text_input("GitHub Token（選填）", value=config.get("github_token", ""), type="password")
+                github_repo = st.text_input("GitHub Repo（選填）", value=config.get("github_repo", ""), placeholder="owner/repository")
+                github_branch = st.text_input("GitHub Branch（選填）", value=config.get("github_branch", "main"))
+                save_github_config = st.form_submit_button("儲存本機 GitHub 設定", use_container_width=True)
 
-            # 💡 已修正：放進 form 裡面，按下按鈕時能準確抓到剛填寫的 Token 並存入 config.json
-            if save_github_config:
-                update_config({
-                    "github_token": github_token.strip(),
-                    "github_repo": github_repo.strip(),
-                    "github_branch": github_branch.strip() or "main",
-                })
-                st.session_state.remote_watchlist_loaded = False
-                sync_error = save_watchlist(stocks, st.session_state.config)
-                clear_widget_state()
-                if sync_error:
-                    st.error(sync_error)
-                else:
-                    st.success("GitHub 同步設定已儲存。")
-                    st.rerun()
+                if save_github_config:
+                    update_config({
+                        "github_token": github_token.strip(),
+                        "github_repo": github_repo.strip(),
+                        "github_branch": github_branch.strip() or "main",
+                    })
+                    st.session_state.remote_watchlist_loaded = False
+                    sync_error = save_watchlist(stocks, st.session_state.config)
+                    clear_widget_state()
+                    if sync_error:
+                        st.error(sync_error)
+                    else:
+                        st.success("GitHub 同步設定已儲存。")
+                        st.rerun()
 
     with st.popover("⚙️ 系統設定", use_container_width=True):
         with st.form("system_settings_form"):
