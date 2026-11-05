@@ -3,12 +3,18 @@
     {
       "symbol": "3037.TW",
       "name": "欣興",
-      "buy_price": 750,
-      "buy_price_2": null,
+      "buy_prices": [
+        750.0,
+        null
+      ],
+      "buy_price": 750.0,
       "sell_price": null,
-      "sell_price_2": null,
-      "notes": "1200/已出清",
+      "note": "1200/已出清",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -16,12 +22,18 @@
     {
       "symbol": "3293.TWO",
       "name": "鈊象",
+      "buy_prices": [
+        634.5,
+        null
+      ],
       "buy_price": 634.5,
-      "buy_price_2": null,
       "sell_price": null,
-      "sell_price_2": null,
-      "notes": "800/已出清",
+      "note": "800/已出清",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -29,28 +41,40 @@
     {
       "symbol": "3211.TWO",
       "name": "順達",
-      "buy_price": 340,
-      "buy_price_2": 258,
-      "sell_price": 625,
-      "sell_price_2": null,
-      "notes": "AI伺服器BBU供應商/過度定價/等恐慌(已加碼1次)",
+      "buy_prices": [
+        340.0,
+        258.0
+      ],
+      "buy_price": 340.0,
+      "sell_price": 625.0,
+      "note": "AI伺服器BBU供應商/過度定價/等恐慌(已加碼1次)",
       "status": "active",
+      "buy_notified_flags": [
+        true,
+        true
+      ],
       "buy_notified": true,
       "sell_notified": false,
       "last_alerts": {
-        "buy": 1793844796.3729794,
-        "buy_2": 1793844110.473398
+        "buy_0": 1792561373.3119702,
+        "buy_1": 1793765163.1049614
       }
     },
     {
       "symbol": "8916.TWO",
       "name": "光隆",
+      "buy_prices": [
+        35.7,
+        null
+      ],
       "buy_price": 35.7,
-      "buy_price_2": null,
       "sell_price": 46.8,
-      "sell_price_2": null,
-      "notes": "庫存調整期/觀察",
+      "note": "庫存調整期/觀察",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -58,27 +82,39 @@
     {
       "symbol": "1795.TW",
       "name": "美時",
+      "buy_prices": [
+        166.5,
+        null
+      ],
       "buy_price": 166.5,
-      "buy_price_2": null,
-      "sell_price": 269,
-      "sell_price_2": null,
-      "notes": "",
+      "sell_price": 269.0,
+      "note": "",
       "status": "active",
+      "buy_notified_flags": [
+        true,
+        false
+      ],
       "buy_notified": true,
       "sell_notified": false,
       "last_alerts": {
-        "buy": 1793841160.4961224
+        "buy_0": 1793585300.6391509
       }
     },
     {
       "symbol": "8046.TW",
       "name": "南電",
-      "buy_price": 890,
-      "buy_price_2": null,
+      "buy_prices": [
+        890.0,
+        null
+      ],
+      "buy_price": 890.0,
       "sell_price": null,
-      "sell_price_2": null,
-      "notes": "1200/未購入已到價",
+      "note": "1200/未購入已到價",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -86,55 +122,81 @@
     {
       "symbol": "2308.TW",
       "name": "台達電",
-      "buy_price": 1585,
-      "buy_price_2": 826,
-      "sell_price": 2000,
-      "sell_price_2": null,
-      "notes": "入場價格不美/獲利有限/等恐慌",
+      "buy_prices": [
+        1585.0,
+        826.0
+      ],
+      "buy_price": 1585.0,
+      "sell_price": 2000.0,
+      "note": "入場價格不美/獲利有限/等恐慌",
       "status": "active",
+      "buy_notified_flags": [
+        true,
+        false
+      ],
       "buy_notified": true,
       "sell_notified": false,
       "last_alerts": {
-        "buy": 1793844796.3729794
+        "buy_0": 1792647797.7227998
       }
     },
     {
       "symbol": "6804.TWO",
       "name": "明係",
-      "buy_price": 15,
-      "buy_price_2": null,
+      "buy_prices": [
+        15.0,
+        null
+      ],
+      "buy_price": 15.0,
       "sell_price": 20.1,
-      "sell_price_2": null,
-      "notes": "找機會重看或等出清",
+      "note": "找機會重看或等出清",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
-      "last_alerts": {}
+      "last_alerts": {
+        "buy_0": 1793681268.0974896
+      }
     },
     {
       "symbol": "4129.TWO",
       "name": "聯合",
-      "buy_price": 75,
-      "buy_price_2": null,
-      "sell_price": 100,
-      "sell_price_2": null,
-      "notes": "",
+      "buy_prices": [
+        75.0,
+        null
+      ],
+      "buy_price": 75.0,
+      "sell_price": 100.0,
+      "note": "",
       "status": "active",
+      "buy_notified_flags": [
+        true,
+        false
+      ],
       "buy_notified": true,
       "sell_notified": false,
       "last_alerts": {
-        "buy": 1793844796.3729794
+        "buy_0": 1793678444.9870768
       }
     },
     {
       "symbol": "6570.TWO",
       "name": "維田",
-      "buy_price": 38,
-      "buy_price_2": null,
-      "sell_price": 56,
-      "sell_price_2": null,
-      "notes": "",
+      "buy_prices": [
+        38.0,
+        null
+      ],
+      "buy_price": 38.0,
+      "sell_price": 56.0,
+      "note": "",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -142,12 +204,18 @@
     {
       "symbol": "6491.TW",
       "name": "晶碩",
-      "buy_price": 279,
-      "buy_price_2": null,
-      "sell_price": 482,
-      "sell_price_2": null,
-      "notes": "",
+      "buy_prices": [
+        279.0,
+        null
+      ],
+      "buy_price": 279.0,
+      "sell_price": 482.0,
+      "note": "",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -155,12 +223,18 @@
     {
       "symbol": "3005.TW",
       "name": "神基",
-      "buy_price": 110,
-      "buy_price_2": null,
-      "sell_price": 146,
-      "sell_price_2": null,
-      "notes": "",
+      "buy_prices": [
+        110.0,
+        null
+      ],
+      "buy_price": 110.0,
+      "sell_price": 146.0,
+      "note": "",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -168,12 +242,18 @@
     {
       "symbol": "6274.TWO",
       "name": "台燿",
-      "buy_price": 977,
-      "buy_price_2": 805,
-      "sell_price": 1580,
-      "sell_price_2": null,
-      "notes": "1580/到價出清",
+      "buy_prices": [
+        977.0,
+        805.0
+      ],
+      "buy_price": 977.0,
+      "sell_price": 1580.0,
+      "note": "1580/到價出清",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -181,28 +261,40 @@
     {
       "symbol": "2327.TW",
       "name": "國巨*",
-      "buy_price": 528,
-      "buy_price_2": 424,
-      "sell_price": 1130,
-      "sell_price_2": null,
-      "notes": "",
+      "buy_prices": [
+        528.0,
+        424.0
+      ],
+      "buy_price": 528.0,
+      "sell_price": 1130.0,
+      "note": "",
       "status": "active",
+      "buy_notified_flags": [
+        true,
+        true
+      ],
       "buy_notified": true,
       "sell_notified": false,
       "last_alerts": {
-        "buy": 1793844796.3729794,
-        "buy_2": 1793843807.74899
+        "buy_0": 1793500684.7817974,
+        "buy_1": 1793764570.0269794
       }
     },
     {
       "symbol": "4576.TW",
       "name": "大銀微系統",
+      "buy_prices": [
+        136.8,
+        105.0
+      ],
       "buy_price": 136.8,
-      "buy_price_2": 105,
-      "sell_price": 250,
-      "sell_price_2": null,
-      "notes": "營收結構改變、市場估值已偏高",
+      "sell_price": 250.0,
+      "note": "營收結構改變、市場估值已偏高",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -210,12 +302,18 @@
     {
       "symbol": "6245.TWO",
       "name": "立端",
+      "buy_prices": [
+        74.8,
+        61.6
+      ],
       "buy_price": 74.8,
-      "buy_price_2": 61.6,
       "sell_price": null,
-      "sell_price_2": null,
-      "notes": "99/已出清/會配股等回檔買入",
+      "note": "99/已出清/會配股等回檔買入",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -223,12 +321,18 @@
     {
       "symbol": "8042.TWO",
       "name": "金山電",
-      "buy_price": 84,
-      "buy_price_2": 75,
-      "sell_price": 175,
-      "sell_price_2": null,
-      "notes": "",
+      "buy_prices": [
+        84.0,
+        75.0
+      ],
+      "buy_price": 84.0,
+      "sell_price": 175.0,
+      "note": "",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -236,12 +340,18 @@
     {
       "symbol": "1101.TW",
       "name": "台泥",
+      "buy_prices": [
+        22.4,
+        21.25
+      ],
       "buy_price": 22.4,
-      "buy_price_2": 21.25,
       "sell_price": 28.8,
-      "sell_price_2": null,
-      "notes": "",
+      "note": "",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -249,27 +359,39 @@
     {
       "symbol": "9802.TW",
       "name": "鈺齊-KY",
+      "buy_prices": [
+        66.4,
+        55.0
+      ],
       "buy_price": 66.4,
-      "buy_price_2": 55,
-      "sell_price": 88,
-      "sell_price_2": null,
-      "notes": "緩慢復甦",
+      "sell_price": 88.0,
+      "note": "緩慢復甦",
       "status": "active",
+      "buy_notified_flags": [
+        true,
+        false
+      ],
       "buy_notified": true,
       "sell_notified": false,
       "last_alerts": {
-        "buy": 1793844796.3729794
+        "buy_0": 1792462815.9857779
       }
     },
     {
       "symbol": "4958.TW",
       "name": "臻鼎-KY",
+      "buy_prices": [
+        212.5,
+        175.0
+      ],
       "buy_price": 212.5,
-      "buy_price_2": 175,
-      "sell_price": 600,
-      "sell_price_2": null,
-      "notes": "",
+      "sell_price": 600.0,
+      "note": "",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -277,42 +399,58 @@
     {
       "symbol": "8109.TWO",
       "name": "博大",
+      "buy_prices": [
+        120.7,
+        99.4
+      ],
       "buy_price": 120.7,
-      "buy_price_2": 99.4,
       "sell_price": 148.5,
-      "sell_price_2": null,
-      "notes": "到價可以減碼/分批落袋",
+      "note": "到價可以減碼/分批落袋",
       "status": "active",
+      "buy_notified_flags": [
+        true,
+        false
+      ],
       "buy_notified": true,
       "sell_notified": false,
       "last_alerts": {
-        "buy": 1793842484.1635938
+        "buy_0": 1793761383.062329
       }
     },
     {
       "symbol": "2383.TW",
       "name": "台光電",
-      "buy_price": 4300,
-      "buy_price_2": 2500,
+      "buy_prices": [
+        4300.0,
+        2500.0
+      ],
+      "buy_price": 4300.0,
       "sell_price": null,
-      "sell_price_2": null,
-      "notes": "成本極低/基本不賣/除非競爭力消失or成長放緩",
+      "note": "成本極低/基本不賣/除非競爭力消失or成長放緩",
       "status": "active",
-      "buy_notified": true,
+      "buy_notified_flags": [
+        false,
+        false
+      ],
+      "buy_notified": false,
       "sell_notified": false,
-      "last_alerts": {
-        "buy": 1793845292.6590443
-      }
+      "last_alerts": {}
     },
     {
       "symbol": "3711.TW",
       "name": "日月光投控",
+      "buy_prices": [
+        573.2,
+        473.3
+      ],
       "buy_price": 573.2,
-      "buy_price_2": 473.3,
       "sell_price": null,
-      "sell_price_2": null,
-      "notes": "650/到價先相信AI出清，後面不貪",
+      "note": "650/到價先相信AI出清，後面不貪",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -320,12 +458,18 @@
     {
       "symbol": "9939.TW",
       "name": "宏全",
-      "buy_price": 112,
-      "buy_price_2": 91,
-      "sell_price": 130,
-      "sell_price_2": null,
-      "notes": "原料大漲，成本轉嫁注意終端銷量",
+      "buy_prices": [
+        112.0,
+        91.0
+      ],
+      "buy_price": 112.0,
+      "sell_price": 130.0,
+      "note": "原料大漲，成本轉嫁注意終端銷量",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
@@ -333,12 +477,18 @@
     {
       "symbol": "2368.TW",
       "name": "金像電",
-      "buy_price": 852,
-      "buy_price_2": 630,
-      "sell_price": 1022,
-      "sell_price_2": null,
-      "notes": "等待 / 分批佈局",
+      "buy_prices": [
+        852.0,
+        630.0
+      ],
+      "buy_price": 852.0,
+      "sell_price": 1022.0,
+      "note": "等待 / 分批佈局",
       "status": "active",
+      "buy_notified_flags": [
+        false,
+        false
+      ],
       "buy_notified": false,
       "sell_notified": false,
       "last_alerts": {}
