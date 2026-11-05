@@ -9,7 +9,6 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
-from urllib.parse import quote
 
 import requests
 import streamlit as st
@@ -204,16 +203,12 @@ def save_watchlist(stocks: list[dict[str, Any]], config: dict[str, Any] | None =
     return sync_watchlist_to_github(stocks, config) if config else None
 
 
-def process_table_action(stocks: list[dict[str, Any]], config: dict[str, Any]) -> None:
-    """處理 HTML Flexbox 操作列的網址參數，避免巢狀 Streamlit 欄位。"""
-    action = str(st.query_params.get("stock_action", ""))
-    symbol = str(st.query_params.get("stock_symbol", "")).upper()
-    if action not in {"toggle", "delete", "up", "down"} or not symbol:
+def apply_table_action(stocks: list[dict[str, Any]], config: dict[str, Any], symbol: str, action: str) -> None:
+    """處理原生操作按鈕，儲存成功後立即重繪清單。"""
+    if action not in {"toggle", "delete", "up", "down"}:
         return
-
     index = next((i for i, stock in enumerate(stocks) if str(stock.get("symbol", "")).upper() == symbol), None)
     if index is None:
-        st.query_params.clear()
         return
 
     changed = False
@@ -229,7 +224,6 @@ def process_table_action(stocks: list[dict[str, Any]], config: dict[str, Any]) -
             stocks[index], stocks[destination] = stocks[destination], stocks[index]
             changed = True
 
-    st.query_params.clear()
     if changed:
         sync_error = save_watchlist(stocks, config)
         if sync_error:
@@ -512,7 +506,6 @@ st.caption("到價 LINE 提醒與即時價格對照")
 
 config = init_config()
 stocks = load_watchlist(config)
-process_table_action(stocks, config)
 
 with st.sidebar:
     st.header("新增股票")
@@ -798,18 +791,16 @@ else:
             row_changed = True
 
         is_paused = stock.get("status", "active") != "active"
-        encoded_symbol = quote(symbol, safe="")
-        status_icon = "▶" if is_paused else "⏸"
-        status_title = "恢復監控" if is_paused else "暫停監控"
-        columns[9].markdown(
-            f'''<div class="stock-actions">
-                <a class="stock-action" href="?stock_action=toggle&amp;stock_symbol={encoded_symbol}" title="{status_title}" aria-label="{status_title}">{status_icon}</a>
-                <a class="stock-action" href="?stock_action=delete&amp;stock_symbol={encoded_symbol}" title="刪除這檔股票" aria-label="刪除這檔股票">🗑</a>
-                <a class="stock-action" href="?stock_action=up&amp;stock_symbol={encoded_symbol}" title="在手動排序中上移" aria-label="在手動排序中上移">↑</a>
-                <a class="stock-action" href="?stock_action=down&amp;stock_symbol={encoded_symbol}" title="在手動排序中下移" aria-label="在手動排序中下移">↓</a>
-            </div>''',
-            unsafe_allow_html=True,
-        )
+        action_columns = columns[9].columns(4, gap="small")
+        status_label = "啟用" if is_paused else "暫停"
+        if action_columns[0].button(status_label, key=f"status_{symbol}", use_container_width=True):
+            apply_table_action(stocks, config, symbol.upper(), "toggle")
+        if action_columns[1].button("刪除", key=f"delete_{symbol}", use_container_width=True):
+            apply_table_action(stocks, config, symbol.upper(), "delete")
+        if action_columns[2].button("↑", key=f"move_up_{symbol}", help="在手動排序中上移", use_container_width=True):
+            apply_table_action(stocks, config, symbol.upper(), "up")
+        if action_columns[3].button("↓", key=f"move_down_{symbol}", help="在手動排序中下移", use_container_width=True):
+            apply_table_action(stocks, config, symbol.upper(), "down")
         return row_changed
 
     for index, stock in active_items:
@@ -817,7 +808,7 @@ else:
 
     archived_items = [(index, stock) for index, stock in enumerate(stocks) if stock.get("status", "active") != "active"]
     if archived_items:
-        with st.expander(f"📦 已出清／暫停庫存（{len(archived_items)}）", expanded=False):
+        with st.expander(f"📦 已出清／暫停庫存（{len(archived_items)}）", expanded=True):
             for index, stock in archived_items:
                 watchlist_changed = render_stock_row(index, stock, archived=True) or watchlist_changed
 
