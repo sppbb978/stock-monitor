@@ -439,8 +439,17 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
             verb = "第 2 批買入" if alert_type == "buy_2" else (
                 "第 1 批買入" if alert_type == "buy" else ("第 2 批賣出" if alert_type == "sell_2" else "第 1 批賣出")
             )
-            stock_label = f"{symbol}（{stock_name}）" if stock_name else symbol
-            text = f"📈 {stock_label} 已觸發{verb}價提醒\n目前價格：{price:,.2f}\n目標價格：{target:,.2f}"
+            # 與既有 LINE 推播格式一致：名稱優先、代碼置於括號，並附上操作備註。
+            stock_label = f"{stock_name} ({symbol})" if stock_name else symbol
+            text_lines = [
+                f"📈 {stock_label} 已觸發{verb}價提醒",
+                f"目前價格：{price:,.2f}",
+                f"目標價格：{target:,.2f}",
+            ]
+            notes = str(stock.get("notes") or "").strip()
+            if notes:
+                text_lines.append(f"備註：{notes}")
+            text = "\n".join(text_lines)
 
             if channel_access_token and user_ids:
                 try:
