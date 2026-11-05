@@ -381,8 +381,8 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
     now = time.time()
     notification_state_changed = False
 
-    active_stocks = [s for s in stocks if s.get("status", "active") == "active"]
-    active_symbols = [str(s.get("symbol", "")).upper() for s in active_stocks if s.get("symbol")]
+    # 「暫停」僅停用 LINE 通知；所有股票仍須更新報價與到價提示。
+    active_symbols = [str(s.get("symbol", "")).upper() for s in stocks if s.get("symbol")]
 
     fetched_prices = fetch_latest_prices(active_symbols)
 
@@ -390,10 +390,6 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
         symbol = str(stock.get("symbol", "")).upper()
         # 名稱由監控清單保存；不在每次檢查時重新查詢，以免通知流程受網路查詢影響。
         stock_name = str(stock.get("name") or "").strip()
-        if stock.get("status", "active") != "active":
-            messages.append(f"⚪ {symbol}: 監控已暫停")
-            continue
-
         price = fetched_prices.get(symbol)
         if price is None:
             # 休市節流：保留休市／無報價提示，但避免自動刷新時洗版。
@@ -404,6 +400,10 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
         stock["last_price"] = price
         stock["last_checked"] = datetime.now(TAIPEI_TZ).strftime("%H:%M")
         messages.append(f"🔹 {symbol}: {price:,.2f}")
+
+        if stock.get("status", "active") != "active":
+            messages.append(f"🔕 {symbol}: LINE 通知已暫停")
+            continue
 
         # 提醒完全由 30 分鐘冷卻控制；不需要價格回彈才可再次提醒。
         buy_price = stock.get("buy_price")
@@ -702,12 +702,12 @@ else:
     header[8].markdown("**決策思維／進出場備註**")
     header[9].markdown("**操作**")
 
-    active_items = [(index, stock) for index, stock in enumerate(stocks) if stock.get("status", "active") == "active"]
+    active_items = list(enumerate(stocks))
     if sort_mode == "依代碼排序":
         active_items.sort(key=lambda item: str(item[1].get("symbol", "")))
 
-    def render_stock_row(index: int, stock: dict[str, Any], archived: bool = False) -> bool:
-        """顯示一列股票設定；暫停項目維持資料但不參與報價與通知。"""
+    def render_stock_row(index: int, stock: dict[str, Any]) -> bool:
+        """顯示一列股票設定；暫停項目仍更新報價與到價提示，只停用 LINE 通知。"""
         row_changed = False
         columns = st.columns(column_widths, gap="small")
         symbol = str(stock.get("symbol", "-"))
@@ -791,8 +791,9 @@ else:
 
         is_paused = stock.get("status", "active") != "active"
         action_columns = columns[9].columns(4, gap="small")
-        status_label = "啟用" if is_paused else "暫停"
-        if action_columns[0].button(status_label, key=f"status_{symbol}", use_container_width=True):
+        status_label = "啟用通知" if is_paused else "暫停通知"
+        status_help = "恢復 LINE 到價通知" if is_paused else "僅暫停 LINE 到價通知；股價與到價提示仍會更新"
+        if action_columns[0].button(status_label, key=f"status_{symbol}", help=status_help, use_container_width=True):
             apply_table_action(stocks, config, symbol.upper(), "toggle")
         if action_columns[1].button("刪除", key=f"delete_{symbol}", use_container_width=True):
             apply_table_action(stocks, config, symbol.upper(), "delete")
@@ -804,12 +805,6 @@ else:
 
     for index, stock in active_items:
         watchlist_changed = render_stock_row(index, stock) or watchlist_changed
-
-    archived_items = [(index, stock) for index, stock in enumerate(stocks) if stock.get("status", "active") != "active"]
-    if archived_items:
-        with st.expander(f"📦 已出清／暫停庫存（{len(archived_items)}）", expanded=True):
-            for index, stock in archived_items:
-                watchlist_changed = render_stock_row(index, stock, archived=True) or watchlist_changed
 
     if watchlist_changed:
         sync_error = save_watchlist(stocks, config)
