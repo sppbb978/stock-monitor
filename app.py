@@ -688,8 +688,8 @@ else:
 
     watchlist_changed = False
 
-    # 代碼／名稱／時間只保留足夠比例，避免空白欄位吞掉操作區的寬度。
-    column_widths = [0.46, 0.50, 1.03, 1.03, 1.03, 1.03, 0.56, 0.50, 1.60, 2.05]
+    # 名稱欄預留五個中文字；買賣價欄只保留標題所需寬度，其餘給備註欄。
+    column_widths = [0.46, 0.68, 0.88, 0.88, 0.88, 0.88, 0.56, 0.50, 2.02, 2.05]
     header = st.columns(column_widths, gap="small")
     header[0].markdown("**股票代碼**")
     header[1].markdown("**股票名稱**")
@@ -702,7 +702,7 @@ else:
     header[8].markdown("**決策思維／進出場備註**")
     header[9].markdown("**操作**")
 
-    active_items = list(enumerate(stocks))
+    active_items = [(index, stock) for index, stock in enumerate(stocks) if stock.get("status", "active") == "active"]
     if sort_mode == "依代碼排序":
         active_items.sort(key=lambda item: str(item[1].get("symbol", "")))
 
@@ -805,6 +805,12 @@ else:
 
     for index, stock in active_items:
         watchlist_changed = render_stock_row(index, stock) or watchlist_changed
+
+    paused_items = [(index, stock) for index, stock in enumerate(stocks) if stock.get("status", "active") != "active"]
+    if paused_items:
+        with st.expander(f"🔕 已暫停 LINE 通知（{len(paused_items)}）", expanded=False):
+            for index, stock in paused_items:
+                watchlist_changed = render_stock_row(index, stock) or watchlist_changed
 
     if watchlist_changed:
         sync_error = save_watchlist(stocks, config)
