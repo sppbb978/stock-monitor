@@ -158,8 +158,8 @@ def get_remote_watchlist() -> list[dict[str, Any]] | None:
         return None
 
 
-def sync_watchlist_to_github(stocks: list[dict[str, Any]]) -> str | None:
-    """將清單過濾後上傳至 GitHub。"""
+def sync_watchlist_to_github(stocks: list[dict[str, Any]]) -> None:
+    """將清單上傳至 GitHub；認證或連線異常時安靜略過。"""
     token, repo, branch = github_settings()
     if not token or not repo:
         return None
@@ -183,8 +183,9 @@ def sync_watchlist_to_github(stocks: list[dict[str, Any]]) -> str | None:
         response = requests.put(url, headers=headers, json=payload, timeout=15)
         response.raise_for_status()
         return None
-    except (requests.RequestException, ValueError) as error:
-        return f"GitHub 同步失敗：{error}"
+    except (requests.RequestException, ValueError):
+        # 本機清單已先儲存；部署期間的暫時 401／網路錯誤不干擾畫面操作。
+        return None
 
 
 def load_watchlist() -> list[dict[str, Any]]:
@@ -214,10 +215,10 @@ def load_watchlist() -> list[dict[str, Any]]:
     return stocks
 
 
-def save_watchlist(stocks: list[dict[str, Any]]) -> str | None:
+def save_watchlist(stocks: list[dict[str, Any]]) -> None:
     """儲存清單到本地與 GitHub。"""
     save_json(WATCHLIST_FILE, {"stocks": stocks})
-    return sync_watchlist_to_github(stocks)
+    sync_watchlist_to_github(stocks)
 
 
 def apply_table_action(stocks: list[dict[str, Any]], symbol: str, action: str) -> None:
@@ -242,11 +243,8 @@ def apply_table_action(stocks: list[dict[str, Any]], symbol: str, action: str) -
             changed = True
 
     if changed:
-        sync_error = save_watchlist(stocks)
-        if sync_error:
-            st.error(sync_error)
-        else:
-            st.rerun()
+        save_watchlist(stocks)
+        st.rerun()
 
 
 def taiwan_yfinance_symbol(stock_code: str) -> str:
@@ -560,12 +558,9 @@ with st.sidebar:
                         "sell_notified": False,
                         "last_alerts": {},
                     })
-                    sync_error = save_watchlist(stocks)
-                    if sync_error:
-                        st.error(sync_error)
-                    else:
-                        st.success(f"已加入 {symbol}")
-                        st.rerun()
+                    save_watchlist(stocks)
+                    st.success(f"已加入 {symbol}")
+                    st.rerun()
             except ValueError as error:
                 st.error(str(error))
 
@@ -585,13 +580,10 @@ with st.sidebar:
                 imported_stocks = backup_data.get("stocks")
                 if not isinstance(imported_stocks, list):
                     raise ValueError("備份檔案缺少 stocks 清單。")
-                sync_error = save_watchlist(imported_stocks)
+                save_watchlist(imported_stocks)
                 clear_widget_state()
-                if sync_error:
-                    st.error(sync_error)
-                else:
-                    st.success("監控清單已匯入。")
-                    st.rerun()
+                st.success("監控清單已匯入。")
+                st.rerun()
             except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
                 st.error(f"無法匯入備份：{error}")
 
@@ -809,14 +801,11 @@ else:
 
     paused_items = [(index, stock) for index, stock in enumerate(stocks) if stock.get("status", "active") != "active"]
     if paused_items:
-        with st.expander(f"🔕 已暫停 LINE 通知（{len(paused_items)}）", expanded=False):
+        with st.expander(f"🔕 已暫停 LINE 通知（{len(paused_items)}）", expanded=True):
             for index, stock in paused_items:
                 watchlist_changed = render_stock_row(index, stock) or watchlist_changed
 
     if watchlist_changed:
-        sync_error = save_watchlist(stocks)
-        if sync_error:
-            st.error(sync_error)
-        else:
-            st.success("監控清單已儲存。")
-            st.rerun()
+        save_watchlist(stocks)
+        st.success("監控清單已儲存。")
+        st.rerun()
