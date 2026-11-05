@@ -55,20 +55,16 @@ def save_json(path: Path, data: dict[str, Any]) -> None:
 
 def init_config() -> dict[str, Any]:
     """初始化全域 Config 並存在 Session State 中。"""
-    default_config = {
-        "line_channel_access_token": "",
-        "line_user_id": "",
-        "refresh_seconds": 60,
-        "github_token": "",
-        "github_repo": "",
-        "github_branch": "main",
-    }
-    # config.json 是唯一來源；每次 rerun 都合併最新的本機設定，避免 Session State 留住舊值。
-    saved_config = load_json(CONFIG_FILE, default_config)
     if "config" not in st.session_state:
-        st.session_state.config = saved_config
-    else:
-        st.session_state.config.update(saved_config)
+        default_config = {
+            "line_channel_access_token": "",
+            "line_user_id": "",
+            "refresh_seconds": 60,
+            "github_token": "",
+            "github_repo": "",
+            "github_branch": "main",
+        }
+        st.session_state.config = load_json(CONFIG_FILE, default_config)
     return st.session_state.config
 
 
@@ -81,12 +77,26 @@ def update_config(new_settings: dict[str, Any]) -> None:
 
 
 def github_settings(config: dict[str, Any]) -> tuple[str, str, str]:
-    """只從本機 config.json（Session State 快取）讀取 GitHub 設定。"""
-    return (
-        str(config.get("github_token", "")).strip(),
-        str(config.get("github_repo", "")).strip(),
-        str(config.get("github_branch", "main")).strip() or "main",
-    )
+    """優先讀取 Streamlit secrets，其次讀取介面儲存的 GitHub 設定。"""
+    token, repo, branch = "", "", "main"
+    try:
+        if "github_token" in st.secrets and str(st.secrets["github_token"]).strip():
+            token = str(st.secrets["github_token"]).strip()
+        if "github_repo" in st.secrets and str(st.secrets["github_repo"]).strip():
+            repo = str(st.secrets["github_repo"]).strip()
+        if "github_branch" in st.secrets and str(st.secrets["github_branch"]).strip():
+            branch = str(st.secrets["github_branch"]).strip()
+    except Exception:
+        pass
+
+    if not token:
+        token = str(config.get("github_token", "")).strip()
+    if not repo:
+        repo = str(config.get("github_repo", "")).strip()
+    if not branch or branch == "main":
+        branch = str(config.get("github_branch", "main")).strip() or "main"
+
+    return token, repo, branch
 
 
 def clean_stocks_for_github(stocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -201,35 +211,6 @@ def save_watchlist(stocks: list[dict[str, Any]], config: dict[str, Any] | None =
     """儲存清單到本地與 GitHub。"""
     save_json(WATCHLIST_FILE, {"stocks": stocks})
     return sync_watchlist_to_github(stocks, config) if config else None
-
-
-def apply_table_action(stocks: list[dict[str, Any]], config: dict[str, Any], symbol: str, action: str) -> None:
-    """處理原生操作按鈕，儲存成功後立即重繪清單。"""
-    if action not in {"toggle", "delete", "up", "down"}:
-        return
-    index = next((i for i, stock in enumerate(stocks) if str(stock.get("symbol", "")).upper() == symbol), None)
-    if index is None:
-        return
-
-    changed = False
-    if action == "toggle":
-        stocks[index]["status"] = "paused" if stocks[index].get("status", "active") == "active" else "active"
-        changed = True
-    elif action == "delete":
-        stocks.pop(index)
-        changed = True
-    else:
-        destination = index - 1 if action == "up" else index + 1
-        if 0 <= destination < len(stocks):
-            stocks[index], stocks[destination] = stocks[destination], stocks[index]
-            changed = True
-
-    if changed:
-        sync_error = save_watchlist(stocks, config)
-        if sync_error:
-            st.error(sync_error)
-        else:
-            st.rerun()
 
 
 def taiwan_yfinance_symbol(stock_code: str) -> str:
@@ -388,8 +369,6 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
 
     for stock in stocks:
         symbol = str(stock.get("symbol", "")).upper()
-        # 名稱由監控清單保存；不在每次檢查時重新查詢，以免通知流程受網路查詢影響。
-        stock_name = str(stock.get("name") or "").strip()
         if stock.get("status", "active") != "active":
             messages.append(f"⚪ {symbol}: 監控已暫停")
             continue
@@ -433,17 +412,7 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
             verb = "第 2 批買入" if alert_type == "buy_2" else (
                 "第 1 批買入" if alert_type == "buy" else ("第 2 批賣出" if alert_type == "sell_2" else "第 1 批賣出")
             )
-            # 與既有 LINE 推播格式一致：名稱優先、代碼置於括號，並附上操作備註。
-            stock_label = f"{stock_name} ({symbol})" if stock_name else symbol
-            text_lines = [
-                f"📈 {stock_label} 已觸發{verb}價提醒",
-                f"目前價格：{price:,.2f}",
-                f"目標價格：{target:,.2f}",
-            ]
-            notes = str(stock.get("notes") or "").strip()
-            if notes:
-                text_lines.append(f"備註：{notes}")
-            text = "\n".join(text_lines)
+            text = f"📈 {symbol} 已觸發{verb}價提醒\n目前價格：{price:,.2f}\n目標價格：{target:,.2f}"
 
             if channel_access_token and user_ids:
                 try:
@@ -473,29 +442,10 @@ st.markdown(
     /* 以直接輸入為主，收起 number_input 預設的加減控制鈕 */
     div[data-testid="stNumberInput"] button { display: none; }
     div[data-testid="stNumberInput"] input { text-align: right; }
-    /* 清單專用的緊湊排版：縮小欄距、欄位內距與操作鈕高度。 */
-    /* 徹底移除 Streamlit 欄位及其內部 block 的隱形留白。 */
-    [data-testid="stHorizontalBlock"] { gap: 2px !important; column-gap: 2px !important; row-gap: 0 !important; }
-    [data-testid="stHorizontalBlock"] > div { gap: 0 !important; column-gap: 0 !important; row-gap: 0 !important; }
-    [data-testid="stHorizontalBlock"] > [data-testid="stColumn"],
-    [data-testid="stHorizontalBlock"] > [data-testid="column"],
-    [data-testid="stColumn"], [data-testid="column"] {
-        min-width: 0 !important; margin: 0 !important; padding: 0 !important;
-    }
-    [data-testid="stColumn"] div, [data-testid="column"] div,
-    .stVerticalBlock, div[data-testid="element-container"] {
-        margin: 0 !important; padding: 0 !important;
-    }
-    div[data-testid="stButton"] { margin: 0 !important; padding: 0 !important; }
-    div[data-testid="stButton"] > button { width: 100% !important; min-width: 0 !important; min-height: 1.55rem; height: 1.55rem; padding: 0; font-size: .75rem; line-height: 1; }
-    div[data-testid="stNumberInput"], div[data-testid="stTextInput"],
-    div[data-testid="stNumberInput"] > div, div[data-testid="stTextInput"] > div {
-        margin: 0 !important; padding: 0 !important;
-    }
-    div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input { min-height: 1.7rem; margin: 0 !important; padding: .05rem .15rem !important; }
-    .stock-actions { display: flex !important; flex-flow: row nowrap !important; align-items: center !important; justify-content: space-between !important; gap: .12rem !important; min-width: 0 !important; white-space: nowrap !important; }
-    .stock-action { display: inline-flex !important; flex: 1 1 0 !important; min-width: 0 !important; height: 1.55rem !important; align-items: center !important; justify-content: center !important; padding: 0 !important; border: 1px solid rgba(151, 166, 195, .35) !important; border-radius: .35rem !important; color: inherit !important; text-decoration: none !important; font-size: .78rem !important; line-height: 1 !important; }
-    .stock-action:hover { background: rgba(255, 255, 255, .10) !important; border-color: rgba(255, 255, 255, .65) !important; }
+    /* 清單專用的緊湊排版：縮小欄距與操作鈕高度。 */
+    div[data-testid="stHorizontalBlock"] { gap: .3rem; }
+    div[data-testid="stButton"] > button { min-height: 1.7rem; padding: .08rem .2rem; font-size: .8rem; }
+    div[data-testid="stNumberInput"] input, div[data-testid="stTextInput"] input { min-height: 1.7rem; padding: .1rem .3rem; }
     .price-buy { color: #5c4400; font-weight: 800; background: #ffd43b; padding: .15rem .4rem; border-radius: .3rem; }
     .price-sell { color: #ffffff; font-weight: 800; background: #e03131; padding: .15rem .4rem; border-radius: .3rem; }
     </style>""",
@@ -668,9 +618,10 @@ else:
     if monitoring or save_refresh:
         if monitoring:
             st_autorefresh(interval=refresh_seconds * 1_000, key="stock_monitor_refresh")
-        monitor_messages = run_monitor(stocks, config)
-
-        log_column, sort_column = st.columns([2.2, 1.3], gap="small")
+        with st.spinner("正在更新價格與檢查提醒…"):
+            monitor_messages = run_monitor(stocks, config)
+        
+        log_column, sort_column = st.columns([2.2, 1.3])
         with log_column:
             with st.expander("🔍 即時檢查日誌", expanded=False):
                 for msg in monitor_messages:
@@ -687,10 +638,10 @@ else:
         sort_mode = st.radio("排序", ["手動排序", "依代碼排序"], horizontal=True, label_visibility="collapsed")
 
     watchlist_changed = False
+    delete_indices: list[int] = []
+    move_requests: list[tuple[int, int]] = []
 
-    # 代碼／名稱／時間只保留足夠比例，避免空白欄位吞掉操作區的寬度。
-    column_widths = [0.46, 0.50, 1.03, 1.03, 1.03, 1.03, 0.56, 0.50, 1.60, 2.05]
-    header = st.columns(column_widths, gap="small")
+    header = st.columns([0.9, 1.0, 0.95, 0.95, 0.95, 0.95, 1.0, 0.85, 1.7, 1.35])
     header[0].markdown("**股票代碼**")
     header[1].markdown("**股票名稱**")
     header[2].markdown("<span style='color:#00c853; font-weight:bold;'>第 1 批買入</span>", unsafe_allow_html=True)
@@ -709,7 +660,7 @@ else:
     def render_stock_row(index: int, stock: dict[str, Any], archived: bool = False) -> bool:
         """顯示一列股票設定；暫停項目維持資料但不參與報價與通知。"""
         row_changed = False
-        columns = st.columns(column_widths, gap="small")
+        columns = st.columns([0.9, 1.0, 0.95, 0.95, 0.95, 0.95, 1.0, 0.85, 1.7, 1.35])
         symbol = str(stock.get("symbol", "-"))
         columns[0].write(symbol)
 
@@ -789,17 +740,20 @@ else:
             stock["notes"] = new_notes.strip()
             row_changed = True
 
+        action_columns = columns[9].columns(2)
         is_paused = stock.get("status", "active") != "active"
-        action_columns = columns[9].columns(4, gap="small")
-        status_label = "啟用" if is_paused else "暫停"
-        if action_columns[0].button(status_label, key=f"status_{symbol}", use_container_width=True):
-            apply_table_action(stocks, config, symbol.upper(), "toggle")
+
+        if action_columns[0].button("恢復" if is_paused else "暫停", key=f"status_{symbol}", use_container_width=True):
+            stock["status"] = "active" if is_paused else "paused"
+            row_changed = True
+
         if action_columns[1].button("刪除", key=f"delete_{symbol}", use_container_width=True):
-            apply_table_action(stocks, config, symbol.upper(), "delete")
-        if action_columns[2].button("↑", key=f"move_up_{symbol}", help="在手動排序中上移", use_container_width=True):
-            apply_table_action(stocks, config, symbol.upper(), "up")
-        if action_columns[3].button("↓", key=f"move_down_{symbol}", help="在手動排序中下移", use_container_width=True):
-            apply_table_action(stocks, config, symbol.upper(), "down")
+            delete_indices.append(index)
+            row_changed = True
+        if action_columns[0].button("↑", key=f"move_up_{symbol}", help="在手動排序中上移", use_container_width=True):
+            move_requests.append((index, -1))
+        if action_columns[1].button("↓", key=f"move_down_{symbol}", help="在手動排序中下移", use_container_width=True):
+            move_requests.append((index, 1))
         return row_changed
 
     for index, stock in active_items:
@@ -807,9 +761,19 @@ else:
 
     archived_items = [(index, stock) for index, stock in enumerate(stocks) if stock.get("status", "active") != "active"]
     if archived_items:
-        with st.expander(f"📦 已出清／暫停庫存（{len(archived_items)}）", expanded=True):
+        with st.expander(f"📦 已出清／暫停庫存（{len(archived_items)}）", expanded=False):
             for index, stock in archived_items:
                 watchlist_changed = render_stock_row(index, stock, archived=True) or watchlist_changed
+
+    # 手動排序以清單原始順序為準；依代碼排序只改變目前檢視、不重寫使用者順序。
+    for index, direction in move_requests:
+        new_index = index + direction
+        if 0 <= new_index < len(stocks):
+            stocks[index], stocks[new_index] = stocks[new_index], stocks[index]
+            watchlist_changed = True
+
+    for index in sorted(set(delete_indices), reverse=True):
+        stocks.pop(index)
 
     if watchlist_changed:
         sync_error = save_watchlist(stocks, config)
