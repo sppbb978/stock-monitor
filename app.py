@@ -394,6 +394,8 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
 
     for stock in stocks:
         symbol = str(stock.get("symbol", "")).upper()
+        # 名稱由監控清單保存；不在每次檢查時重新查詢，以免通知流程受網路查詢影響。
+        stock_name = str(stock.get("name") or "").strip()
         if stock.get("status", "active") != "active":
             messages.append(f"⚪ {symbol}: 監控已暫停")
             continue
@@ -437,7 +439,8 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
             verb = "第 2 批買入" if alert_type == "buy_2" else (
                 "第 1 批買入" if alert_type == "buy" else ("第 2 批賣出" if alert_type == "sell_2" else "第 1 批賣出")
             )
-            text = f"📈 {symbol} 已觸發{verb}價提醒\n目前價格：{price:,.2f}\n目標價格：{target:,.2f}"
+            stock_label = f"{symbol}（{stock_name}）" if stock_name else symbol
+            text = f"📈 {stock_label} 已觸發{verb}價提醒\n目前價格：{price:,.2f}\n目標價格：{target:,.2f}"
 
             if channel_access_token and user_ids:
                 try:
