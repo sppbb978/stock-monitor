@@ -29,6 +29,7 @@ CONFIG_FILE = BASE_DIR / "config.json"
 # 休市節流：休市、盤後或暫時無報價時，不在每次自動更新都重複寫入日誌。
 MARKET_CLOSED_LOG_THROTTLE_SECONDS = 30 * 60
 GITHUB_WATCHLIST_PATH = "watchlist.json"
+GITHUB_SETTINGS_PATH = "settings.json"
 
 
 def load_json(path: Path, default: dict[str, Any]) -> dict[str, Any]:
@@ -72,10 +73,15 @@ def init_config() -> dict[str, Any]:
         st.session_state.config = saved_config
     else:
         st.session_state.config.update(saved_config)
+    if not st.session_state.get("remote_settings_loaded", False):
+        remote_refresh = get_remote_refresh_seconds()
+        if remote_refresh in (30, 60, 180, 300, 600):
+            st.session_state.config["refresh_seconds"] = remote_refresh
+        st.session_state.remote_settings_loaded = True
     return st.session_state.config
 
 
-def update_config(new_settings: dict[str, Any]) -> None:
+def update_config(new_settings: dict[str, Any]) -> bool | None:
     """同步更新 Session State 與硬碟中的 config.json。"""
     if "config" not in st.session_state:
         st.session_state.config = {}
@@ -84,6 +90,56 @@ def update_config(new_settings: dict[str, Any]) -> None:
         new_settings.pop(key, None)
     st.session_state.config.update(new_settings)
     save_json(CONFIG_FILE, st.session_state.config)
+    if "refresh_seconds" in new_settings:
+        token, repo, _ = github_settings()
+        if token and repo:
+            return sync_refresh_seconds_to_github(int(new_settings["refresh_seconds"]))
+        return None
+    return True
+
+
+def get_remote_refresh_seconds() -> int | None:
+    """由 GitHub 還原雲端部署重啟後會消失的重新整理設定。"""
+    token, repo, branch = github_settings()
+    if not token or not repo:
+        return None
+    try:
+        response = requests.get(
+            f"https://api.github.com/repos/{repo}/contents/{GITHUB_SETTINGS_PATH}",
+            headers={"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"},
+            params={"ref": branch}, timeout=15,
+        )
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        payload = json.loads(base64.b64decode(response.json().get("content", "")).decode("utf-8"))
+        value = int(payload.get("refresh_seconds"))
+        return value if value in (30, 60, 180, 300, 600) else None
+    except (requests.RequestException, ValueError, TypeError, KeyError):
+        return None
+
+
+def sync_refresh_seconds_to_github(refresh_seconds: int) -> bool:
+    """將非敏感的重新整理頻率儲存至 GitHub，供其他電腦及雲端重啟還原。"""
+    token, repo, branch = github_settings()
+    if not token or not repo:
+        return False
+    try:
+        url = f"https://api.github.com/repos/{repo}/contents/{GITHUB_SETTINGS_PATH}"
+        headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+        current = requests.get(url, headers=headers, params={"ref": branch}, timeout=15)
+        sha = current.json().get("sha") if current.ok else None
+        if not current.ok and current.status_code != 404:
+            current.raise_for_status()
+        content = json.dumps({"refresh_seconds": refresh_seconds}, indent=2).encode("utf-8")
+        payload = {"message": "chore: save refresh interval", "content": base64.b64encode(content).decode("ascii"), "branch": branch}
+        if sha:
+            payload["sha"] = sha
+        response = requests.put(url, headers=headers, json=payload, timeout=15)
+        response.raise_for_status()
+        return True
+    except (requests.RequestException, ValueError):
+        return False
 
 
 def github_secrets() -> tuple[str, str, str]:
@@ -645,8 +701,13 @@ with st.sidebar:
                 format_func=lambda seconds: f"{seconds // 60} 分鐘" if seconds >= 60 else f"{seconds} 秒",
             )
             if st.form_submit_button("儲存系統設定", use_container_width=True):
-                update_config({"refresh_seconds": refresh_seconds})
-                st.success("系統設定已儲存。")
+                synced = update_config({"refresh_seconds": refresh_seconds})
+                if synced is False:
+                    st.warning("本機已儲存，但 GitHub 同步失敗；雲端重啟後可能無法還原此設定。")
+                elif synced is None:
+                    st.info("設定已儲存在目前執行環境；未設定 GitHub Secrets 時，雲端重啟後無法保證保留。")
+                else:
+                    st.success("重新整理頻率已儲存並同步至 GitHub。")
                 st.rerun()
 
     with st.popover("⚙️ LINE 設定", use_container_width=True):
