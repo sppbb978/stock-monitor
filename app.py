@@ -545,12 +545,14 @@ st.markdown(
     .stock-actions { display: flex !important; flex-flow: row nowrap !important; align-items: center !important; justify-content: space-between !important; gap: .12rem !important; min-width: 0 !important; white-space: nowrap !important; }
     .stock-action { display: inline-flex !important; flex: 1 1 0 !important; min-width: 0 !important; height: 1.55rem !important; align-items: center !important; justify-content: center !important; padding: 0 !important; border: 1px solid rgba(151, 166, 195, .35) !important; border-radius: .35rem !important; color: inherit !important; text-decoration: none !important; font-size: .78rem !important; line-height: 1 !important; }
     .stock-action:hover { background: rgba(255, 255, 255, .10) !important; border-color: rgba(255, 255, 255, .65) !important; }
-    .price-buy { color: #5c4400; font-weight: 800; background: #ffd43b; padding: .15rem .4rem; border-radius: .3rem; }
-    .price-sell { color: #ffffff; font-weight: 800; background: #e03131; padding: .15rem .4rem; border-radius: .3rem; }
-    [data-testid="stHorizontalBlock"] [data-testid="stColumn"]:nth-child(3) input { background: #fff3bf !important; }
-    [data-testid="stHorizontalBlock"] [data-testid="stColumn"]:nth-child(4) input { background: #d3f9d8 !important; }
-    [data-testid="stHorizontalBlock"] [data-testid="stColumn"]:nth-child(5) input { background: #ffe3e3 !important; }
-    [data-testid="stHorizontalBlock"] [data-testid="stColumn"]:nth-child(6) input { background: #e5dbff !important; }
+    .price-buy-1, .price-buy-2, .price-sell-1, .price-sell-2 {
+        display: inline-block; min-width: 4.4rem; text-align: right; padding: .15rem .4rem;
+        border-radius: .3rem; font-weight: 800; color: #111;
+    }
+    .price-buy-1 { background: #ffcc00; }
+    .price-buy-2 { background: #20b14b; color: #fff; }
+    .price-sell-1 { background: #ff91b5; }
+    .price-sell-2 { background: #a53caf; color: #fff; }
     </style>""",
     unsafe_allow_html=True,
 )
@@ -797,10 +799,17 @@ else:
         price_markup = "-"
         if price is not None:
             numeric_price = float(price)
-            buy_nearby = any(target > 0 and numeric_price <= target * 1.01 for target in (current_buy, current_buy_2))
-            sell_nearby = any(target > 0 and numeric_price >= target * 0.99 for target in (current_sell, current_sell_2))
-            # 賣出訊號優先紅底、買入訊號為黃底；批次不影響視覺判讀。
-            css_class = "price-sell" if sell_nearby else ("price-buy" if buy_nearby else "")
+            # 以觸價條件判斷目標批次；若同時符合多個價位，顯示最接近現價的目標。
+            triggered = []
+            if current_buy > 0 and numeric_price <= current_buy:
+                triggered.append((abs(numeric_price - current_buy), "price-buy-1"))
+            if current_buy_2 > 0 and numeric_price <= current_buy_2:
+                triggered.append((abs(numeric_price - current_buy_2), "price-buy-2"))
+            if current_sell > 0 and numeric_price >= current_sell:
+                triggered.append((abs(numeric_price - current_sell), "price-sell-1"))
+            if current_sell_2 > 0 and numeric_price >= current_sell_2:
+                triggered.append((abs(numeric_price - current_sell_2), "price-sell-2"))
+            css_class = min(triggered, key=lambda item: item[0])[1] if triggered else ""
             price_markup = f"<span class='{css_class}'>{numeric_price:,.2f}</span>" if css_class else f"{numeric_price:,.2f}"
         columns[6].markdown(price_markup, unsafe_allow_html=True)
         checked_at = str(stock.get("last_checked", "尚未檢查"))
