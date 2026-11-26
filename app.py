@@ -26,7 +26,6 @@ except Exception:
 BASE_DIR = Path(__file__).resolve().parent
 WATCHLIST_FILE = BASE_DIR / "watchlist.json"
 CONFIG_FILE = BASE_DIR / "config.json"
-COOLDOWN_SECONDS = 30 * 60  # 30 分鐘冷卻
 # 休市節流：休市、盤後或暫時無報價時，不在每次自動更新都重複寫入日誌。
 MARKET_CLOSED_LOG_THROTTLE_SECONDS = 30 * 60
 GITHUB_WATCHLIST_PATH = "watchlist.json"
@@ -122,6 +121,7 @@ def clean_stocks_for_github(stocks: list[dict[str, Any]]) -> list[dict[str, Any]
             "buy_notified": s.get("buy_notified", False),
             "sell_notified": s.get("sell_notified", False),
             "last_alerts": s.get("last_alerts", {}),
+            "notifications_enabled": s.get("notifications_enabled", True),
         }
         cleaned.append(item)
     return cleaned
@@ -201,8 +201,19 @@ def load_watchlist() -> list[dict[str, Any]]:
         if "notes" not in stock and "note" in stock:
             stock["notes"] = str(stock.get("note") or "")
 
-    # 本機已有清單時絕不以遠端資料覆寫，避免手動備份或剛還原的資料被蓋掉。
+    # 每個瀏覽器工作階段只從遠端同步一次，讓不同電腦載入最新清單。
+    # 之後的編輯由 save_watchlist 即時推送，避免每次 rerun 覆蓋本機編輯。
     if not stocks and not st.session_state.get("remote_watchlist_loaded", False):
+        try:
+            remote_stocks = get_remote_watchlist()
+            if remote_stocks is not None:
+                stocks = remote_stocks
+                save_json(WATCHLIST_FILE, {"stocks": stocks})
+                clear_widget_state()
+        except Exception:
+            pass
+        st.session_state.remote_watchlist_loaded = True
+    elif not st.session_state.get("remote_watchlist_loaded", False):
         try:
             remote_stocks = get_remote_watchlist()
             if remote_stocks is not None:
@@ -359,6 +370,21 @@ def send_line_message(channel_access_token: str, user_id: str, message: str) -> 
     response.raise_for_status()
 
 
+def get_line_quota(channel_access_token: str) -> tuple[int, int] | None:
+    """取得 LINE 官方帳號本月訊息額度與已使用量。"""
+    headers = {"Authorization": f"Bearer {channel_access_token}"}
+    try:
+        quota = requests.get("https://api.line.me/v2/bot/message/quota", headers=headers, timeout=10)
+        usage = requests.get("https://api.line.me/v2/bot/message/quota/consumption", headers=headers, timeout=10)
+        quota.raise_for_status()
+        usage.raise_for_status()
+        limit = int(quota.json().get("value", 0))
+        used = int(usage.json().get("totalUsage", 0))
+        return limit, max(0, limit - used)
+    except (requests.RequestException, ValueError, TypeError):
+        return None
+
+
 def line_user_ids(config: dict[str, Any]) -> list[str]:
     """將逗號（或換行）分隔的 LINE User ID 正規化並去除重複值。"""
     raw_ids = str(config.get("line_user_id", "")).replace("\n", ",").split(",")
@@ -366,10 +392,16 @@ def line_user_ids(config: dict[str, Any]) -> list[str]:
 
 
 def can_notify(stock: dict[str, Any], alert_type: str, now: float) -> bool:
-    """判斷是否超過冷卻時間。"""
+    """同一標的、同一目標價每天最多通知一次。"""
     last_alerts = stock.get("last_alerts", {})
-    last_sent = float(last_alerts.get(alert_type, 0))
-    return (now - last_sent) >= COOLDOWN_SECONDS
+    last_sent = last_alerts.get(alert_type)
+    if not last_sent:
+        return True
+    try:
+        sent_day = datetime.fromtimestamp(float(last_sent), TAIPEI_TZ).date()
+    except (TypeError, ValueError, OSError):
+        return True
+    return sent_day != datetime.fromtimestamp(now, TAIPEI_TZ).date()
 
 
 def should_report_market_closed(symbol: str, now: float) -> bool:
@@ -420,7 +452,9 @@ def run_monitor(stocks: list[dict[str, Any]], config: dict[str, Any]) -> list[st
             messages.append(f"🔕 {symbol}: LINE 通知已暫停")
             continue
 
-        # 提醒完全由 30 分鐘冷卻控制；不需要價格回彈才可再次提醒。
+        # 新增標的只提供顏色提醒；舊標的每個目標價每日最多通知一次。
+        if stock.get("notifications_enabled", True) is False:
+            continue
         buy_price = stock.get("buy_price")
         buy_price_2 = stock.get("buy_price_2")
         sell_price = stock.get("sell_price")
@@ -513,6 +547,10 @@ st.markdown(
     .stock-action:hover { background: rgba(255, 255, 255, .10) !important; border-color: rgba(255, 255, 255, .65) !important; }
     .price-buy { color: #5c4400; font-weight: 800; background: #ffd43b; padding: .15rem .4rem; border-radius: .3rem; }
     .price-sell { color: #ffffff; font-weight: 800; background: #e03131; padding: .15rem .4rem; border-radius: .3rem; }
+    [data-testid="stHorizontalBlock"] [data-testid="stColumn"]:nth-child(3) input { background: #fff3bf !important; }
+    [data-testid="stHorizontalBlock"] [data-testid="stColumn"]:nth-child(4) input { background: #d3f9d8 !important; }
+    [data-testid="stHorizontalBlock"] [data-testid="stColumn"]:nth-child(5) input { background: #ffe3e3 !important; }
+    [data-testid="stHorizontalBlock"] [data-testid="stColumn"]:nth-child(6) input { background: #e5dbff !important; }
     </style>""",
     unsafe_allow_html=True,
 )
@@ -557,6 +595,7 @@ with st.sidebar:
                         "buy_notified": False,
                         "sell_notified": False,
                         "last_alerts": {},
+                        "notifications_enabled": False,
                     })
                     save_watchlist(stocks)
                     st.success(f"已加入 {symbol}")
@@ -632,6 +671,16 @@ with st.sidebar:
             })
             st.success("LINE 設定已儲存。")
             st.rerun()
+
+        if line_channel_access_token.strip():
+            quota_info = get_line_quota(line_channel_access_token.strip())
+            if quota_info:
+                quota_limit, quota_remaining = quota_info
+                st.caption(f"LINE 本月免費推播剩餘：{quota_remaining}/{quota_limit}")
+                if quota_remaining <= 10:
+                    st.warning(f"免費推播額度只剩 {quota_remaining} 則，請留意使用量。")
+            else:
+                st.caption("目前無法讀取 LINE 訊息額度；請確認 Token 權限或方案額度。")
 
         if test_line_message:
             try:
